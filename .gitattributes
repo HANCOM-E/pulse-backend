@@ -1,0 +1,15 @@
+# .gitattributes (Claude 제안 + Spring Initializr 기본값 병합, 2026-07-29)
+* text=auto
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Spring Initializr 기본값
+/gradlew text eol=lf
+*.jar binary

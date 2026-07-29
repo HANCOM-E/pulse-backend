@@ -19,7 +19,7 @@
 
 | 레이어 | 선택 | 비고 |
 |---|---|---|
-| 백엔드 | Spring Boot (Gradle) | 담당 1명, 의도적으로 가볍게 설계. 빌드 도구는 원 기획서가 "Gradle/빈 설정"을 학습 난점으로 명시해 Gradle을 전제합니다. |
+| 백엔드 | Spring Boot 4.1.0 (Gradle, Groovy DSL) | 담당 1명, 의도적으로 가볍게 설계. 빌드 도구는 원 기획서가 "Gradle/빈 설정"을 학습 난점으로 명시해 Gradle을 전제합니다. Groovy DSL은 2026-07-29 팀 확인. |
 | DB | PostgreSQL 무료 티어 (Neon 또는 Supabase) | 원 기획서 아키텍처 다이어그램에 명시돼 있습니다. |
 | 인증 | Spring Security + 이메일/비번 + JWT(또는 세션) + 단일 역할 | 원 기획서 "최소 실물 auth만" 절에 명시된 범위입니다. |
 | 실시간 (서버) | 폴링 → SSE 승급 | 초기에는 폴링 응답 API만 제공하고, 이후 SSE 엔드포인트를 추가합니다. 프론트와 전환 시점을 맞춰야 합니다. |
@@ -31,7 +31,9 @@
 | 항목 | 값 | 근거 |
 |---|---|---|
 | Java 버전 | Java 21 (LTS) | Spring Boot 3는 Java 17 이상이 최소 요구 사항이며, 2026년 기준 신규 프로젝트에는 더 최신 LTS인 Java 21이 권장됩니다. ([goregulus.com](https://goregulus.com/cra-basics/spring-boot-versions/), [technetexperts.com](https://www.technetexperts.com/java-25-vs-21-postgresql-risk/)) |
-| 빌드 도구 | Gradle | "확정된 기술 스택" 표 참고. 원 기획서가 Gradle을 전제합니다. |
+| 빌드 도구 | Gradle (Groovy DSL) | "확정된 기술 스택" 표 참고. 원 기획서가 Gradle을 전제하며, DSL(Groovy vs Kotlin)은 2026-07-29 팀 확인으로 Groovy를 선택했습니다. |
+| Spring Boot 버전 | 4.1.0 | Spring Initializr 기본 추천값을 그대로 사용했습니다(2026-07-29 스캐폴딩 시점 기준). |
+| groupId / artifactId | `com.hancome.pulse` / `pulse-backend` | 2026-07-29 팀 확인. |
 | 코드 스타일/린트 도구 | **미정** | Checkstyle, Spotless 등 백엔드 코드 스타일 강제 도구를 팀이 아직 정한 적이 없습니다. 백엔드 담당자가 정해야 합니다. |
 | 패키지/레이어 구조 | **미정** | controller/service/repository 레이어 분리 여부 등 프로젝트 구조를 팀이 아직 정한 적이 없습니다. 백엔드 담당자가 정해야 합니다. |
 
@@ -43,16 +45,15 @@
 |---|---|---|
 | 백엔드 호스팅 서비스 | **Render (무료 티어)** — ⚠ 자동 세팅 중단, 팀 검증 필요 | 2026년 기준 Render/Railway/Fly.io 비교에서 Spring Boot를 실제로 무료로 돌릴 수 있는 곳은 Render뿐입니다. 다만 15분 비활성 시 슬립, 콜드스타트 30초 이상, 부하 시 메모리 부족(OOM) 크래시 사례가 확인되어 발표 당일 리스크로 남습니다. 이는 원 기획서가 이미 "무료 티어는 콜드스타트·잠자기가 붙는다"고 예상한 리스크와 일치합니다. ([bswen.com](https://docs.bswen.com/blog/2026-02-28-springboot-free-hosting/), [render.com](https://render.com/articles/platforms-with-a-real-free-tier-for-developers-in-2026)) 2026-07-29 팀 회의에서는 이 제안을 그대로 채택하지 않고, Render와 AWS 프리티어의 트레이드오프를 팀이 직접 확인한 뒤 결정하기로 했습니다. |
 | `.editorconfig` (에디터 호환) | 도입 + 아래 내용 | WebStorm은 EditorConfig 지원이 기본 활성화, IntelliJ IDEA도 내장 지원됩니다. VS Code만 "EditorConfig for VS Code" 확장 프로그램을 팀원이 직접 설치해야 합니다. ([JetBrains WebStorm 문서](https://www.jetbrains.com/help/webstorm/editorconfig.html), [JetBrains IntelliJ 문서](https://www.jetbrains.com/help/idea/editorconfig.html), [VS Code 확장](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)) |
-| `.gitattributes` | 도입 + 아래 내용 | `* text=auto`로 개행을 자동 정규화하고, 소스 코드는 `eol=lf`로 통일하며 Windows 전용 스크립트만 `eol=crlf`로 강제하는 방식이 일반적 관례입니다. 프론트엔드와 동일한 원칙을 백엔드 확장자(`*.java`, `*.gradle`, `*.properties`, `*.yml`)에 적용했습니다. ([rehansaeed.com](https://rehansaeed.com/gitattributes-best-practices/), [dev.to](https://dev.to/ramunarasinga-11/-textauto-in-gitattributes-file-4ba5)) |
-| `.gitignore` 세부 항목 | GitHub 공식 Gradle 템플릿 사용 | `.gradle`, `build/` 등 Gradle 빌드 산출물을 제외하는 것이 GitHub 공식 템플릿의 표준 구성입니다. 2026-07-29 raw 파일로 직접 확인했습니다. ([github.com/github/gitignore](https://github.com/github/gitignore/blob/main/Gradle.gitignore)) 시크릿 파일(`application-local.yml`, `.env` 등) 제외는 별도로 추가해야 합니다. |
+| `.gitattributes` ✅ 적용됨 (2026-07-29) | 도입 + 아래 내용 | `* text=auto`로 개행을 자동 정규화하고, 소스 코드는 `eol=lf`로 통일하며 Windows 전용 스크립트만 `eol=crlf`로 강제하는 방식이 일반적 관례입니다. 프론트엔드와 동일한 원칙(`*.java`, `*.gradle`, `*.properties`, `*.yml`)에 Spring Initializr가 자체 생성한 `/gradlew`, `*.jar binary` 규칙을 합쳐서 실제 파일로 적용했습니다. ([rehansaeed.com](https://rehansaeed.com/gitattributes-best-practices/), [dev.to](https://dev.to/ramunarasinga-11/-textauto-in-gitattributes-file-4ba5)) |
+| `.gitignore` 세부 항목 ✅ 적용됨 (2026-07-29, 제안값 변경) | Spring Initializr 기본값 사용 | 스캐폴딩 시 GitHub 공식 Gradle 템플릿 대신 Spring Initializr가 실제로 생성한 `.gitignore`를 채택했습니다. `.gradle`, `build/`, IDE별(STS/IntelliJ/NetBeans/VS Code) 산출물, `HELP.md`를 포함합니다. 시크릿 파일(`application-local.yml`, `.env` 등) 제외는 아직 별도로 추가하지 않았으니 실제 시크릿 파일이 생기기 전에 추가해야 합니다. |
 | 환경 변수/시크릿 관리 방식 | 시크릿이 포함된 설정(`application-local.yml` 또는 `.env`)은 커밋하지 않고, 템플릿(`application-example.yml` 또는 `.env.example`)만 커밋합니다 | Spring Boot 프로젝트의 일반적인 관례입니다. 프론트엔드의 `.env.example`/`.env.local` 원칙과 동일한 취지를 백엔드 설정 파일명에 맞게 적용했습니다. |
 
 ```gitattributes
-# .gitattributes (Claude 제안)
+# .gitattributes (Claude 제안 + Spring Initializr 기본값 병합, 2026-07-29 실제 적용)
 * text=auto
 *.java text eol=lf
 *.gradle text eol=lf
-*.gradle.kts text eol=lf
 *.properties text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
@@ -60,6 +61,10 @@
 *.sh text eol=lf
 *.cmd text eol=crlf
 *.bat text eol=crlf
+
+# Spring Initializr 기본값
+/gradlew text eol=lf
+*.jar binary
 ```
 
 ```ini
@@ -79,30 +84,46 @@ trim_trailing_whitespace = false
 ```
 
 ```gitignore
-# .gitignore (GitHub 공식 Gradle.gitignore, 2026-07-29 확인)
+# .gitignore (Spring Initializr 기본값, 2026-07-29 실제 적용)
+HELP.md
 .gradle
-**/build/
-!**/src/**/build/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-# Ignore Gradle GUI config
-gradle-app.setting
-
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
-
-# Avoid ignore Gradle wrapper properties
-!gradle-wrapper.properties
-
-# Cache of project
-.gradletasknamecache
-
-# Eclipse Gradle plugin generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
+### STS ###
+.apt_generated
 .classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
 
-# 시크릿 (Claude 제안 — 팀 검증 필요)
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+# 시크릿 (Claude 제안 — 아직 반영 안 됨, 실제 시크릿 파일 생기기 전에 추가 필요)
 application-local.yml
 application-secret.yml
 .env
