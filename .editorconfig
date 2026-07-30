@@ -1,0 +1,20 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# Java 표준 4-space (palantir-java-format / IntelliJ 기본과 일치)
+[*.java]
+indent_size = 4
+max_line_length = 120
+
+# YAML/JSON 은 2-space 관례
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
