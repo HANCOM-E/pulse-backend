@@ -10,6 +10,9 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
+# git hook 스크립트는 sh 실행을 위해 개행을 LF로 고정
+.githooks/** text eol=lf
+
 # Spring Initializr 기본값
 /gradlew text eol=lf
 *.jar binary
