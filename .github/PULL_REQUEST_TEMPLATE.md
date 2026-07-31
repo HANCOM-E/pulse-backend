@@ -1,6 +1,6 @@
 <!--
-PR 제목 형식: <type>(<scope>): <subject>
-예: feat(dashboard): 실시간 감정 온도계 추가
+PR 제목 형식: <type>(<scope>)?: <subject>   (scope는 선택, 커밋 훅과 동일 규칙)
+예: feat(dashboard): 실시간 감정 온도계 추가  /  chore: 백엔드 포맷 도구 세팅
 
 type: feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
 subject: 50자 이내, 명령문, 마침표 없음
