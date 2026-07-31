@@ -1,0 +1,12 @@
+# 로컬 개발용 DB 접속 정보 템플릿.
+# 사용법: 이 파일을 같은 위치에 application-local.properties 로 복사한 뒤 아래 값을 Neon 것으로 채운다.
+#   (application-local.properties 는 .gitignore 되어 커밋되지 않음. 이 .example 에는 절대 실제 값을 넣지 말 것)
+#
+# Neon 접속 문자열 예시:
+#   postgresql://myuser:mypass@ep-cool-name-12345.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+# 위를 아래 3개로 분해:
+#   - host/db 부분 앞에 jdbc: 를 붙이고, 자격증명(myuser:mypass@)은 URL에서 빼서 username/password 로 옮긴다.
+
+spring.datasource.url=jdbc:postgresql://ep-cool-name-12345.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+spring.datasource.username=myuser
+spring.datasource.password=mypass
