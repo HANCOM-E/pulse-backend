@@ -9,5 +9,8 @@ RUN ./gradlew clean bootJar -x test --no-daemon
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/pulse-backend-0.0.1-SNAPSHOT.jar app.jar
+# root로 실행하지 않도록 전용 비특권 유저 생성
+RUN useradd -r -u 1001 appuser && chown appuser app.jar
+USER appuser
 # 포트는 앱이 $PORT(server.port)로 바인딩. Render가 주입.
 ENTRYPOINT ["java", "-jar", "app.jar"]

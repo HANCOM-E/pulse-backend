@@ -11,7 +11,10 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable()) // REST API라 CSRF 토큰 불필요
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()); // 0-1: 일단 전부 열기 (0-3에서 실제 규칙으로 교체)
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/v1/health")
+                        .permitAll() // 헬스체크만 공개
+                        .anyRequest()
+                        .authenticated()); // 나머지는 인증 필요 (0-3에서 JWT 필터 추가)
         return http.build();
     }
 }
