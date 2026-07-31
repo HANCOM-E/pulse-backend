@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '8.9.0'
 }
 
 group = 'com.hancome.pulse'
@@ -31,4 +32,19 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+spotless {
+	java {
+		palantirJavaFormat()
+		removeUnusedImports()
+		importOrder()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
+}
+
+// ./gradlew build 가 포맷 위반 시 실패하도록 check 에 바인딩
+tasks.named('check') {
+	dependsOn 'spotlessCheck'
 }

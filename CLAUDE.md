@@ -2,7 +2,7 @@
 
 > 이 파일은 매 세션 자동 로드되는 AI 가이드입니다.
 > **강제되는 규칙(lint/hook)은 여기 중복 기재하지 않습니다.** 아래는 툴로 못 잡는 규칙 + 문서 링크만 다룹니다.
-> 진실의 원천: 커밋 컨벤션은 commitlint(도입 시)가 강제합니다. 백엔드 코드 스타일 강제 도구(Checkstyle/Spotless 등)는 아직 팀이 정하지 않았으므로, 정해지기 전까지는 이 문서의 규칙이 임시 진실의 원천입니다.
+> 진실의 원천: 커밋 컨벤션은 `.githooks/commit-msg`(Conventional Commits, 로컬 훅)가 강제하고, 코드 포맷은 **Spotless(palantir-java-format)**가 `./gradlew build`에서 강제합니다(2026-07-30 백엔드 담당 결정). 이 문서는 그 도구들이 못 잡는 설계 규칙만 다룹니다.
 > 프론트엔드는 별도 레포(`CLAUDE.frontend.md` 참고)에서 관리합니다. 이 문서는 백엔드 레포에만 적용됩니다.
 
 ## ⚠ 자동 세팅 전 필수 확인
@@ -34,8 +34,8 @@
 | 빌드 도구 | Gradle (Groovy DSL) | "확정된 기술 스택" 표 참고. 원 기획서가 Gradle을 전제하며, DSL(Groovy vs Kotlin)은 2026-07-29 팀 확인으로 Groovy를 선택했습니다. |
 | Spring Boot 버전 | 4.1.0 | Spring Initializr 기본 추천값을 그대로 사용했습니다(2026-07-29 스캐폴딩 시점 기준). |
 | groupId / artifactId | `com.hancome.pulse` / `pulse-backend` | 2026-07-29 팀 확인. |
-| 코드 스타일/린트 도구 | **미정** | Checkstyle, Spotless 등 백엔드 코드 스타일 강제 도구를 팀이 아직 정한 적이 없습니다. 백엔드 담당자가 정해야 합니다. |
-| 패키지/레이어 구조 | **미정** | controller/service/repository 레이어 분리 여부 등 프로젝트 구조를 팀이 아직 정한 적이 없습니다. 백엔드 담당자가 정해야 합니다. |
+| 코드 스타일/린트 도구 | **Spotless + palantir-java-format** (4-space·120칼럼) | 백엔드 담당 결정(2026-07-30). `spotlessCheck`를 `check`에 바인딩해 `./gradlew build`에서 포맷 위반 시 빌드 실패. 자동정리는 `./gradlew spotlessApply`. Checkstyle/SpotBugs는 솔로·6주 범위에 과해 미도입. 근거: [Oracle Code Conventions](https://www.oracle.com/java/technologies/javase/codeconventions-indentation.html)(4-space 전통 표준), [palantir-java-format](https://github.com/palantir/palantir-java-format)(120칼럼) |
+| 패키지/레이어 구조 | **package-by-feature** | 백엔드 담당 결정(2026-07-30). `com.hancome.pulse` 하위를 `auth`/`event`(Session 포함)/`feedback`/`report`/`common`으로 나누고, 각 feature 패키지 내부에서 controller·service·repository를 둡니다. 도메인 경계가 뚜렷하고 "모듈 단위 분리"에 적합. 근거: [Package by feature, not layer](http://www.javapractices.com/topic/TopicAction.do?Id=205) |
 
 ### Claude 제안 항목 — 웹 검색 기반으로 Claude가 채움
 
@@ -44,7 +44,7 @@
 | 항목 | Claude 제안값 | 근거 |
 |---|---|---|
 | 백엔드 호스팅 서비스 | **Render (무료 티어)** — ⚠ 자동 세팅 중단, 팀 검증 필요 | 2026년 기준 Render/Railway/Fly.io 비교에서 Spring Boot를 실제로 무료로 돌릴 수 있는 곳은 Render뿐입니다. 다만 15분 비활성 시 슬립, 콜드스타트 30초 이상, 부하 시 메모리 부족(OOM) 크래시 사례가 확인되어 발표 당일 리스크로 남습니다. 이는 원 기획서가 이미 "무료 티어는 콜드스타트·잠자기가 붙는다"고 예상한 리스크와 일치합니다. ([bswen.com](https://docs.bswen.com/blog/2026-02-28-springboot-free-hosting/), [render.com](https://render.com/articles/platforms-with-a-real-free-tier-for-developers-in-2026)) 2026-07-29 팀 회의에서는 이 제안을 그대로 채택하지 않고, Render와 AWS 프리티어의 트레이드오프를 팀이 직접 확인한 뒤 결정하기로 했습니다. |
-| `.editorconfig` (에디터 호환) | 도입 + 아래 내용 | WebStorm은 EditorConfig 지원이 기본 활성화, IntelliJ IDEA도 내장 지원됩니다. VS Code만 "EditorConfig for VS Code" 확장 프로그램을 팀원이 직접 설치해야 합니다. ([JetBrains WebStorm 문서](https://www.jetbrains.com/help/webstorm/editorconfig.html), [JetBrains IntelliJ 문서](https://www.jetbrains.com/help/idea/editorconfig.html), [VS Code 확장](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)) |
+| `.editorconfig` ✅ 적용됨 (2026-07-30, 제안값 변경) | 도입 + 아래 내용 (Java **4-space**) | 백엔드 담당이 실제 파일로 적용. 팀 초안의 2-space에서 **Java 표준 4-space로 변경**(Spotless palantir·IntelliJ 기본과 일치, YAML/JSON만 2-space 유지). WebStorm/IntelliJ는 내장 지원, VS Code만 "EditorConfig for VS Code" 확장 필요. ([JetBrains WebStorm 문서](https://www.jetbrains.com/help/webstorm/editorconfig.html), [JetBrains IntelliJ 문서](https://www.jetbrains.com/help/idea/editorconfig.html), [VS Code 확장](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)) |
 | `.gitattributes` ✅ 적용됨 (2026-07-29) | 도입 + 아래 내용 | `* text=auto`로 개행을 자동 정규화하고, 소스 코드는 `eol=lf`로 통일하며 Windows 전용 스크립트만 `eol=crlf`로 강제하는 방식이 일반적 관례입니다. 프론트엔드와 동일한 원칙(`*.java`, `*.gradle`, `*.properties`, `*.yml`)에 Spring Initializr가 자체 생성한 `/gradlew`, `*.jar binary` 규칙을 합쳐서 실제 파일로 적용했습니다. ([rehansaeed.com](https://rehansaeed.com/gitattributes-best-practices/), [dev.to](https://dev.to/ramunarasinga-11/-textauto-in-gitattributes-file-4ba5)) |
 | `.gitignore` 세부 항목 ✅ 적용됨 (2026-07-29, 제안값 변경) | Spring Initializr 기본값 사용 | 스캐폴딩 시 GitHub 공식 Gradle 템플릿 대신 Spring Initializr가 실제로 생성한 `.gitignore`를 채택했습니다. `.gradle`, `build/`, IDE별(STS/IntelliJ/NetBeans/VS Code) 산출물, `HELP.md`를 포함합니다. 시크릿 파일(`application-local.yml`, `.env` 등) 제외는 아직 별도로 추가하지 않았으니 실제 시크릿 파일이 생기기 전에 추가해야 합니다. |
 | 환경 변수/시크릿 관리 방식 | 시크릿이 포함된 설정(`application-local.yml` 또는 `.env`)은 커밋하지 않고, 템플릿(`application-example.yml` 또는 `.env.example`)만 커밋합니다 | Spring Boot 프로젝트의 일반적인 관례입니다. 프론트엔드의 `.env.example`/`.env.local` 원칙과 동일한 취지를 백엔드 설정 파일명에 맞게 적용했습니다. |
@@ -68,16 +68,24 @@
 ```
 
 ```ini
-# .editorconfig (Claude 제안, VS Code는 "EditorConfig for VS Code" 확장 설치 필요)
+# .editorconfig (2026-07-30 실제 적용, VS Code는 "EditorConfig for VS Code" 확장 설치 필요)
 root = true
 
 [*]
 charset = utf-8
-indent_style = space
-indent_size = 2
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
+indent_style = space
+
+# Java 표준 4-space (palantir-java-format / IntelliJ 기본과 일치)
+[*.java]
+indent_size = 4
+max_line_length = 120
+
+# YAML/JSON 은 2-space 관례
+[*.{yml,yaml,json}]
+indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
@@ -139,7 +147,16 @@ application-secret.yml
 
 ## 코드 규칙 (린트로 못 잡는 것만 — 반드시 준수)
 
-> 아직 팀이 백엔드 전용 코드 규칙(네이밍, 레이어 구조, 예외 처리 방식 등)을 정하지 않았습니다. 정해지는 대로 이 섹션을 채워야 합니다.
+> 포맷/스타일은 Spotless가 강제하므로 여기 적지 않습니다. 아래는 도구가 못 잡는 설계 규칙만.
+
+- **레이어 분리**: `controller`는 요청/응답(DTO)과 검증만, 비즈니스 로직은 `service`, DB 접근은 `repository`. 컨트롤러에 로직을 넣지 않습니다.
+- **Entity 직접 노출 금지**: 컨트롤러 요청/응답에 JPA `@Entity`를 그대로 쓰지 않고 DTO로 변환합니다(순환참조·과다노출 방지).
+- **연관관계는 기본 `LAZY`**: `@ManyToOne`/`@OneToMany`의 `fetch`는 지연로딩을 기본으로 하고, 목록 조회는 fetch join으로 N+1을 방지합니다.
+- **소유권 인가**: 이벤트 수정·삭제 등 주최자 리소스는 `Event.ownerId == 현재 유저` 인가 체크를 반드시 통과해야 합니다(원 기획서의 소유권 seam).
+- **예외 처리**: 도메인/검증 예외는 `@RestControllerAdvice` 전역 핸들러에서 일관된 에러 응답 포맷으로 변환합니다. 컨트롤러마다 try/catch를 흩뿌리지 않습니다.
+- **비밀번호**: 반드시 `BCryptPasswordEncoder`로 해시. 평문 저장 금지.
+- **시크릿**: API 키·DB 비번은 `application-local.yml`/`.env`(커밋 금지)에 두고, 템플릿만 커밋합니다.
+- **실시간 페이로드**: 폴링과 SSE는 동일한 스냅샷 스키마를 반환해야 합니다(전송 방식이 바뀌어도 프론트에 새지 않게).
 
 ## 프론트엔드 연동 원칙
 
