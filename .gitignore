@@ -38,5 +38,6 @@ out/
 
 ### 시크릿 (CLAUDE.md "환경 변수/시크릿 관리 방식" 참고) ###
 application-local.yml
+application-local.properties
 application-secret.yml
 .env
