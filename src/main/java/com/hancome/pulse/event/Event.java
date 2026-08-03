@@ -16,6 +16,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -109,8 +110,11 @@ public class Event {
         return createdAt;
     }
 
+    // 읽기 전용 뷰를 반환한다. 외부에서 getSessions().add()로 직접 넣으면
+    // session.setEvent(this)가 누락돼 event_id NOT NULL 위반이 나므로,
+    // 세션 추가는 항상 addSession()만 쓰도록 강제한다.
     public List<Session> getSessions() {
-        return sessions;
+        return Collections.unmodifiableList(sessions);
     }
 
     public void setTitle(String title) {

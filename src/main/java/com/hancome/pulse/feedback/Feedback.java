@@ -34,6 +34,7 @@ public class Feedback {
     private List<String> keywords;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private FeedbackStatus status = FeedbackStatus.VISIBLE;
 
     @CreationTimestamp
