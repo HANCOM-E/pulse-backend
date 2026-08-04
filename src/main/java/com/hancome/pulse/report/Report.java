@@ -20,7 +20,7 @@ public class Report {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReportStatus status = ReportStatus.PENDING;
+    private ReportStatus status = ReportStatus.GENERATING;
 
     @Column(columnDefinition = "text")
     private String summaryText;

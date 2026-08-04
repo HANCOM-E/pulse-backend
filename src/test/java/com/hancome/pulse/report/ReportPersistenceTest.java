@@ -49,8 +49,7 @@ class ReportPersistenceTest {
         Report found = em.find(Report.class, reportId);
 
         // then: event는 아직 로딩되지 않은 LAZY 프록시 (= 주인 쪽 @OneToOne LAZY가 동작함)
-        PersistenceUnitUtil pu =
-                em.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil();
+        PersistenceUnitUtil pu = em.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil();
         assertThat(pu.isLoaded(found, "event")).isFalse();
 
         // 값을 실제로 건드리면 그때 초기화되어 로딩된다.
