@@ -19,14 +19,12 @@ public class AuthController {
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
-    ;
 
     @PostMapping("/signup")
     public ResponseEntity<Void> signup(@Valid @RequestBody SignupRequest req) {
         authService.signUp(req);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
-    ;
 
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest req) {

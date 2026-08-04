@@ -29,7 +29,6 @@ public class AuthService {
             userRepository.save(new User(req.email(), hash));
         }
     }
-    ;
 
     public TokenResponse login(LoginRequest req) {
         User user =
@@ -42,5 +41,4 @@ public class AuthService {
 
         return new TokenResponse(token, jwtProvider.getExpirationInSeconds());
     }
-    ;
 }

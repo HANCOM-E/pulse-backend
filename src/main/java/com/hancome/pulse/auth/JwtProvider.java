@@ -29,7 +29,6 @@ public class JwtProvider {
                 .signWith(key)
                 .compact();
     }
-    ;
 
     public Long parseUserId(String token) {
         String sub = Jwts.parser()
@@ -40,10 +39,8 @@ public class JwtProvider {
                 .getSubject();
         return Long.parseLong(sub);
     }
-    ;
 
     public long getExpirationInSeconds() {
         return expirationMs / 1000;
     }
-    ;
 }
