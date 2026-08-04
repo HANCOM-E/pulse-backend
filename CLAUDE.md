@@ -3,7 +3,20 @@
 > 이 파일은 매 세션 자동 로드되는 AI 가이드입니다.
 > **강제되는 규칙(lint/hook)은 여기 중복 기재하지 않습니다.** 아래는 툴로 못 잡는 규칙 + 문서 링크만 다룹니다.
 > 진실의 원천: 커밋 컨벤션은 `.githooks/commit-msg`(Conventional Commits, 로컬 훅)가 강제하고, 코드 포맷은 **Spotless(palantir-java-format)**가 `./gradlew build`에서 강제합니다(2026-07-30 백엔드 담당 결정). 이 문서는 그 도구들이 못 잡는 설계 규칙만 다룹니다.
-> 프론트엔드는 별도 레포(`CLAUDE.frontend.md` 참고)에서 관리합니다. 이 문서는 백엔드 레포에만 적용됩니다.
+> 프론트엔드는 별도 레포(`pulse-frontend/CLAUDE.md` 참고)에서 관리합니다. 이 문서는 백엔드 레포에만 적용됩니다.
+
+## 기획/스펙 참고
+
+Pulse 산출물은 Notion HANCOM 팀스페이스 '산출물 관리' 섹션이 원본입니다. 작업을 시작하기 전에 관련 문서를 먼저 열어 최신 규칙을 확인해야 합니다.
+
+- **요구사항 명세서** (SSOT) — https://app.notion.com/p/a9a5f62e86848339a96c01c7d055b4f5
+  화면 동작 순서, 상태 전이, 입력 검증, 실패 사유의 원천입니다.
+- **API 명세서** (SSOT) — https://app.notion.com/p/f3f5f62e868482ee9faf816de775057c
+  요청/응답 스키마의 원천입니다.
+- **ERD** (참고, 코드가 SSOT) — https://app.notion.com/p/4f85f62e868483ceac7c81a76f998ef1
+  코드 위치(SSOT): `src/main/java/com/hancome/pulse/{auth,event,feedback,report}` — `auth`에 User, `event`에 Event·Session, `feedback`에 Feedback, `report`에 Report 엔티티가 있습니다. 이 Notion 다이어그램은 참고용이며, 어긋날 경우 코드를 기준으로 삼아야 합니다.
+- **용어집** — https://app.notion.com/p/3b25f62e8684818ca55dcd2825d5e988
+  "세션"·"이벤트" 같은 단어가 도메인 엔티티인지 일반 개발 용어(로그인 세션, JS 이벤트 핸들러)인지 헷갈릴 때 확인해야 합니다. 특히 로그인 세션 관련 변수/타입은 `session` 단독 대신 `authSession`/`jwtSession`처럼 지어서 도메인 `Session` 엔티티와 이름이 겹치지 않게 해야 합니다.
 
 ## ⚠ 자동 세팅 전 필수 확인
 
