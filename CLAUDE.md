@@ -9,7 +9,7 @@
 
 아래 항목은 이 문서만으로 자동 결정할 수 없습니다. "CLAUDE.md 기준으로 세팅해줘"를 실행하다가 이 지점에서 멈추고 팀에 확인해야 합니다. 나머지 항목(Java 버전, `.editorconfig`, `.gitattributes` 등)은 구체적인 값이 있어 바로 실행 가능합니다.
 
-- **백엔드 호스팅 서비스** — Render를 제안했지만, 무료 티어에서 부하가 걸리면 메모리 부족(OOM)으로 크래시한 사례가 검색 결과로 확인되어 발표 당일 리스크가 있습니다. 2026-07-29 팀 회의에서 Render와 AWS 프리티어의 트레이드오프를 확인한 뒤 결정하기로 했으므로, 비교 결과가 나오기 전까지는 확정값이 아닙니다.
+- **백엔드 호스팅 서비스** — ✅ **확정: Render + Dockerfile 배포** (2026-07-31, 실제 배포 완료로 해소됨). Render엔 네이티브 Java 런타임이 없어 `eclipse-temurin:21` 멀티스테이지 Dockerfile로 배포합니다(JDK 21 고정, 비루트 실행). 앱은 `server.port=${PORT:8080}`로 Render 주입 포트에 바인딩. AWS EC2+RDS 이전은 코어 완성 후 스트레치. 콜드스타트/OOM 리스크는 발표 전 워밍으로 대응. (이 항목은 확정되어 더 이상 자동 세팅을 막지 않습니다.)
 
 ## 프로젝트 개요
 
@@ -24,7 +24,7 @@
 | 인증 | Spring Security + 이메일/비번 + JWT(또는 세션) + 단일 역할 | 원 기획서 "최소 실물 auth만" 절에 명시된 범위입니다. |
 | 실시간 (서버) | 폴링 → SSE 승급 | 초기에는 폴링 응답 API만 제공하고, 이후 SSE 엔드포인트를 추가합니다. 프론트와 전환 시점을 맞춰야 합니다. |
 | LLM | 무료 티어 API(Gemini 등) | 종료 후 배치 요약 1회만 호출. (누가 호출할지는 원 기획서에 명시가 없어 DB 접근이 필요한 백엔드 배치 잡으로 가정했습니다. 프론트 쪽 호출이 맞다면 이 항목을 옮겨야 합니다.) |
-| 배포 | 무료 백엔드 호스팅 | 비용 0 유지가 원칙. 서비스명은 위 "⚠ 자동 세팅 전 필수 확인" 참고 |
+| 배포 | **Render (무료 티어) + Dockerfile** | 비용 0 유지가 원칙. Java 네이티브 런타임이 없어 `eclipse-temurin:21` 멀티스테이지 Dockerfile 사용(2026-07-31 채택, 배포 완료). 상세는 위 호스팅 항목 |
 
 ## 개발 환경 설정
 
@@ -43,7 +43,7 @@
 
 | 항목 | Claude 제안값 | 근거 |
 |---|---|---|
-| 백엔드 호스팅 서비스 | **Render (무료 티어)** — ⚠ 자동 세팅 중단, 팀 검증 필요 | 2026년 기준 Render/Railway/Fly.io 비교에서 Spring Boot를 실제로 무료로 돌릴 수 있는 곳은 Render뿐입니다. 다만 15분 비활성 시 슬립, 콜드스타트 30초 이상, 부하 시 메모리 부족(OOM) 크래시 사례가 확인되어 발표 당일 리스크로 남습니다. 이는 원 기획서가 이미 "무료 티어는 콜드스타트·잠자기가 붙는다"고 예상한 리스크와 일치합니다. ([bswen.com](https://docs.bswen.com/blog/2026-02-28-springboot-free-hosting/), [render.com](https://render.com/articles/platforms-with-a-real-free-tier-for-developers-in-2026)) 2026-07-29 팀 회의에서는 이 제안을 그대로 채택하지 않고, Render와 AWS 프리티어의 트레이드오프를 팀이 직접 확인한 뒤 결정하기로 했습니다. |
+| 백엔드 호스팅 서비스 | ✅ **Render (무료 티어) + Dockerfile 확정** (2026-07-31, 배포 완료) | 2026년 기준 Render/Railway/Fly.io 비교에서 Spring Boot를 실제로 무료로 돌릴 수 있는 곳은 Render뿐입니다. **Render엔 네이티브 Java 런타임이 없어 Dockerfile 경유가 정석**(공식 문서 확인)이라, 당초 "Docker 스킵" 방침을 뒤집고 `eclipse-temurin:21` 멀티스테이지 Dockerfile을 채택했습니다(JDK 21 고정으로 버전 리스크 제거). 15분 비활성 시 슬립·콜드스타트 30초 이상·부하 시 OOM 크래시 사례는 발표 당일 리스크로 남아 발표 전 워밍으로 대응합니다. ([bswen.com](https://docs.bswen.com/blog/2026-02-28-springboot-free-hosting/), [render.com](https://render.com/articles/platforms-with-a-real-free-tier-for-developers-in-2026)) |
 | `.editorconfig` ✅ 적용됨 (2026-07-30, 제안값 변경) | 도입 + 아래 내용 (Java **4-space**) | 백엔드 담당이 실제 파일로 적용. 팀 초안의 2-space에서 **Java 표준 4-space로 변경**(Spotless palantir·IntelliJ 기본과 일치, YAML/JSON만 2-space 유지). WebStorm/IntelliJ는 내장 지원, VS Code만 "EditorConfig for VS Code" 확장 필요. ([JetBrains WebStorm 문서](https://www.jetbrains.com/help/webstorm/editorconfig.html), [JetBrains IntelliJ 문서](https://www.jetbrains.com/help/idea/editorconfig.html), [VS Code 확장](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)) |
 | `.gitattributes` ✅ 적용됨 (2026-07-29) | 도입 + 아래 내용 | `* text=auto`로 개행을 자동 정규화하고, 소스 코드는 `eol=lf`로 통일하며 Windows 전용 스크립트만 `eol=crlf`로 강제하는 방식이 일반적 관례입니다. 프론트엔드와 동일한 원칙(`*.java`, `*.gradle`, `*.properties`, `*.yml`)에 Spring Initializr가 자체 생성한 `/gradlew`, `*.jar binary` 규칙을 합쳐서 실제 파일로 적용했습니다. ([rehansaeed.com](https://rehansaeed.com/gitattributes-best-practices/), [dev.to](https://dev.to/ramunarasinga-11/-textauto-in-gitattributes-file-4ba5)) |
 | `.gitignore` 세부 항목 ✅ 적용됨 (2026-07-29, 제안값 변경) | Spring Initializr 기본값 사용 | 스캐폴딩 시 GitHub 공식 Gradle 템플릿 대신 Spring Initializr가 실제로 생성한 `.gitignore`를 채택했습니다. `.gradle`, `build/`, IDE별(STS/IntelliJ/NetBeans/VS Code) 산출물, `HELP.md`를 포함합니다. 시크릿 파일(`application-local.yml`, `.env` 등) 제외는 아직 별도로 추가하지 않았으니 실제 시크릿 파일이 생기기 전에 추가해야 합니다. |
