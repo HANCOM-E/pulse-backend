@@ -26,7 +26,7 @@ public class JwtProvider {
                 .subject(String.valueOf(userId))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS256) // 알고리즘을 HS256으로 고정(secret 길이에 따라 HS384로 추론되는 것 방지)
                 .compact();
     }
 

@@ -11,3 +11,7 @@ spring.datasource.username=sa
 spring.datasource.password=
 
 spring.jpa.hibernate.ddl-auto=create-drop
+
+# JWT secret (필수). 소스에 폴백을 두지 않으므로 로컬에서도 반드시 지정해야 부팅됩니다.
+# HS256 서명이라 최소 32바이트(256비트) 이상으로. 배포(Render)는 이 파일 대신 env JWT_SECRET를 씁니다.
+jwt.secret=local-dev-only-jwt-secret-change-me-min-32-bytes

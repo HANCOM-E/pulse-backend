@@ -31,8 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtProvider.parseUserId(token);
                 var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (JwtException e) {
-                // 유효하지 않은 토큰 -> 인증없이 통과 & 인가 단계에서 401
+            } catch (JwtException | IllegalArgumentException e) {
+                // 유효하지 않은/빈 토큰(jjwt는 빈 토큰에 IllegalArgumentException) -> 인증없이 통과 & 인가 단계에서 401
             }
         }
         filterChain.doFilter(request, response);
