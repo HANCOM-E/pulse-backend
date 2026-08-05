@@ -1,6 +1,8 @@
 package com.hancome.pulse.auth;
 
 import jakarta.persistence.*;
+import java.time.Instant;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "users")
@@ -15,6 +17,10 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
+    @CreationTimestamp
+    @Column(updatable = false)
+    private Instant createdAt;
+
     protected User() {}
 
     public User(String email, String passwordHash) {
@@ -28,6 +34,10 @@ public class User {
 
     public String getEmail() {
         return email;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 
     public void setEmail(String email) {
