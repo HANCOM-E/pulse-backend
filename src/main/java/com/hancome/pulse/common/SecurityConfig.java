@@ -22,6 +22,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class SecurityConfig {
 
+    /**
+     * 보안 필터 체인: stateless + JWT, CORS 허용, 공개 경로 외 인증 요구, 필터단 실패를 공통 봉투로 응답.
+     *
+     * @param http 시큐리티 빌더
+     * @param jwtAuthenticationFilter 토큰을 검증해 SecurityContext를 채우는 필터
+     * @return 구성된 필터 체인
+     * @throws Exception 빌드 실패 시
+     */
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
             throws Exception {
@@ -42,9 +50,16 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 봉투는 우리가 통제하는 고정 문자열(enum 이름 + 기본 메시지)뿐이라 JSON을 직접 조립한다.
-    // (Boot 4는 Jackson 3라 옛 ObjectMapper 주입이 안 됨 → 문자열 조립이 더 단순·안전.)
-    // ErrorCode 메시지에 큰따옴표/역슬래시를 넣지 말 것(넣으면 JSON 이스케이프 필요).
+    /**
+     * 필터 단 인증/인가 실패 응답을 {@code {code, message}} 봉투 JSON으로 직접 쓴다.
+     *
+     * <p>봉투는 통제된 고정 문자열(enum 이름 + 기본 메시지)뿐이라 문자열로 조립한다. (Boot 4는 Jackson 3라 옛 ObjectMapper 주입이 안
+     * 됨.) ErrorCode 메시지에 큰따옴표/역슬래시를 넣지 말 것(넣으면 JSON 이스케이프 필요).
+     *
+     * @param res 서블릿 응답
+     * @param code 응답할 에러 코드
+     * @throws IOException 응답 쓰기 실패 시
+     */
     private static void writeError(HttpServletResponse res, ErrorCode code) throws IOException {
         res.setStatus(code.status().value());
         res.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -52,6 +67,12 @@ public class SecurityConfig {
         res.getWriter().write("{\"code\":\"" + code.name() + "\",\"message\":\"" + code.defaultMessage() + "\"}");
     }
 
+    /**
+     * CORS 허용 정책: 로컬(localhost)과 Vercel(프리뷰 포함) origin, 우리가 쓰는 메서드, 모든 헤더(Authorization·X-Client-Id 등).
+     * JWT를 헤더로 보내고 쿠키를 안 써서 credentials는 끈다.
+     *
+     * @return {@code /**} 전 경로에 적용되는 CORS 설정 소스
+     */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -66,6 +87,9 @@ public class SecurityConfig {
         return source;
     }
 
+    /**
+     * @return 비밀번호 해시·검증에 쓰는 BCrypt 인코더
+     */
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

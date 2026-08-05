@@ -28,6 +28,13 @@ public class AuthService {
         this.dummyHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
+    /**
+     * 회원가입 후 즉시 토큰을 발급한다(자동 로그인).
+     *
+     * @param req 이메일·비밀번호
+     * @return 가입된 유저 정보 + accessToken
+     * @throws ApiException 이미 가입된 이메일이면 {@code EMAIL_ALREADY_EXISTS}
+     */
     @Transactional
     public SignupResponse signUp(SignupRequest req) {
         if (userRepository.findByEmail(req.email()).isPresent()) {
@@ -46,6 +53,13 @@ public class AuthService {
                 user.getId(), user.getEmail(), user.getCreatedAt(), token, jwtProvider.getExpirationInSeconds());
     }
 
+    /**
+     * 이메일·비밀번호를 검증하고 accessToken을 발급한다.
+     *
+     * @param req 이메일·비밀번호
+     * @return accessToken + 만료(초)
+     * @throws ApiException 이메일이 없거나 비밀번호가 틀리면 {@code INVALID_CREDENTIALS}(두 경우를 구별하지 않음)
+     */
     public TokenResponse login(LoginRequest req) {
         User user = userRepository.findByEmail(req.email()).orElse(null);
 

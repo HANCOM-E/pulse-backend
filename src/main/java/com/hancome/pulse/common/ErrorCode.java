@@ -31,15 +31,25 @@ public enum ErrorCode {
     private final HttpStatus status;
     private final String defaultMessage;
 
+    /**
+     * @param status 이 코드가 응답할 HTTP 상태
+     * @param defaultMessage 별도 메시지가 없을 때 봉투에 담을 기본 문구
+     */
     ErrorCode(HttpStatus status, String defaultMessage) {
         this.status = status;
         this.defaultMessage = defaultMessage;
     }
 
+    /**
+     * @return 이 코드에 매핑된 HTTP 상태
+     */
     public HttpStatus status() {
         return status;
     }
 
+    /**
+     * @return 봉투 message에 쓸 기본 문구
+     */
     public String defaultMessage() {
         return defaultMessage;
     }
