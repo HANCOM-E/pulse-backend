@@ -2,6 +2,7 @@ package com.hancome.pulse.auth;
 
 import com.hancome.pulse.auth.dto.LoginRequest;
 import com.hancome.pulse.auth.dto.SignupRequest;
+import com.hancome.pulse.auth.dto.SignupResponse;
 import com.hancome.pulse.auth.dto.TokenResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,9 +22,8 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<Void> signup(@Valid @RequestBody SignupRequest req) {
-        authService.signUp(req);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.signUp(req));
     }
 
     @PostMapping("/login")
