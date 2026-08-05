@@ -4,8 +4,9 @@ import com.hancome.pulse.auth.dto.LoginRequest;
 import com.hancome.pulse.auth.dto.SignupRequest;
 import com.hancome.pulse.auth.dto.SignupResponse;
 import com.hancome.pulse.auth.dto.TokenResponse;
+import com.hancome.pulse.common.ApiException;
+import com.hancome.pulse.common.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,17 +28,24 @@ public class AuthService {
         this.dummyHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
+    /**
+     * 회원가입 후 즉시 토큰을 발급한다(자동 로그인).
+     *
+     * @param req 이메일·비밀번호
+     * @return 가입된 유저 정보 + accessToken
+     * @throws ApiException 이미 가입된 이메일이면 {@code EMAIL_ALREADY_EXISTS}
+     */
     @Transactional
     public SignupResponse signUp(SignupRequest req) {
         if (userRepository.findByEmail(req.email()).isPresent()) {
-            throw new IllegalStateException("이미 가입된 이메일");
+            throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         User user;
         try {
             user = userRepository.save(new User(req.email(), passwordEncoder.encode(req.password())));
         } catch (DataIntegrityViolationException e) {
             // 위 검사와 저장 사이의 동시 가입 레이스 → DB unique 제약 위반을 같은 충돌로 매핑
-            throw new IllegalStateException("이미 가입된 이메일");
+            throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         // 가입과 동시에 토큰 발급(자동 로그인) — 팀 API 명세서 확정.
         String token = jwtProvider.generateToken(user.getId());
@@ -45,6 +53,13 @@ public class AuthService {
                 user.getId(), user.getEmail(), user.getCreatedAt(), token, jwtProvider.getExpirationInSeconds());
     }
 
+    /**
+     * 이메일·비밀번호를 검증하고 accessToken을 발급한다.
+     *
+     * @param req 이메일·비밀번호
+     * @return accessToken + 만료(초)
+     * @throws ApiException 이메일이 없거나 비밀번호가 틀리면 {@code INVALID_CREDENTIALS}(두 경우를 구별하지 않음)
+     */
     public TokenResponse login(LoginRequest req) {
         User user = userRepository.findByEmail(req.email()).orElse(null);
 
@@ -52,10 +67,10 @@ public class AuthService {
         // 두 실패 경로 모두 같은 일반화 메시지로 통일해 어느 쪽이 틀렸는지 노출하지 않는다.
         if (user == null) {
             passwordEncoder.matches(req.password(), dummyHash);
-            throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다");
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
-            throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다");
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         String token = jwtProvider.generateToken(user.getId());

@@ -7,3 +7,7 @@ reviews:
     base_branches:
       - "main"
       - "dev"
+  # Docstring 커버리지 체크 끔. 1인 내부 레포라 Javadoc 커버리지 강제는 불필요.
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
