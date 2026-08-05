@@ -7,7 +7,7 @@ reviews:
     base_branches:
       - "main"
       - "dev"
-  # Docstring 커버리지 임계값을 낮춘다(기본 80%). 1인 내부 레포라 보일러플레이트 Javadoc 강제는 과함.
+  # Docstring 커버리지 체크 끔. 1인 내부 레포라 Javadoc 커버리지 강제는 불필요.
   pre_merge_checks:
     docstrings:
-      threshold: 50
+      mode: "off"
