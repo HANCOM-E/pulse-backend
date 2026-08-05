@@ -5,6 +5,7 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -43,9 +44,11 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
-                .exceptionHandling(
-                        ex -> ex.authenticationEntryPoint((req, res, e) -> writeError(res, ErrorCode.UNAUTHORIZED))
-                                .accessDeniedHandler((req, res, e) -> writeError(res, ErrorCode.NOT_OWNER)))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
+                            res.setHeader("WWW-Authenticate", "Bearer"); // RFC 7235: 401은 인증 방식(Bearer)을 알린다
+                            writeError(res, ErrorCode.UNAUTHORIZED);
+                        })
+                        .accessDeniedHandler((req, res, e) -> writeError(res, ErrorCode.NOT_OWNER)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -68,16 +71,16 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS 허용 정책: 로컬(localhost)과 Vercel(프리뷰 포함) origin, 우리가 쓰는 메서드, 모든 헤더(Authorization·X-Client-Id 등).
-     * JWT를 헤더로 보내고 쿠키를 안 써서 credentials는 끈다.
+     * CORS 허용 정책. 허용 origin은 프로퍼티 {@code cors.allowed-origins}(쉼표 구분)로 주입한다.
+     * 와일드카드({@code *.vercel.app}) 대신 정확한 도메인을 써야 임의 배포 사이트가 인증 응답(JWT 바디)을 읽는 것을 막는다(CWE-942).
      *
+     * @param allowedOrigins 허용할 origin 목록(로컬 기본값, 배포는 env로 실제 도메인 주입)
      * @return {@code /**} 전 경로에 적용되는 CORS 설정 소스
      */
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(@Value("${cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        // 로컬 개발 + Vercel(프리뷰 URL은 매번 바뀌므로 패턴). 고정 프로덕션 도메인 확정되면 추가.
-        config.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.vercel.app"));
+        config.setAllowedOriginPatterns(allowedOrigins); // 정확한 도메인(로컬은 http://localhost:*)
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*")); // Authorization, X-Client-Id 등 모두 허용
         // JWT는 Authorization 헤더로 보내고 쿠키를 쓰지 않으므로 credentials 불필요.
