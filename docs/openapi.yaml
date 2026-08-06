@@ -246,6 +246,38 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /events/{eventCode}/sessions/{sessionId}:
+    patch:
+      tags: [event]
+      summary: 세션 수정 (제목·순서, 소유자만)
+      description: 부분 수정(필드 optional).
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/SessionIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionUpdateRequest"
+      responses:
+        "200":
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 세션 (code: SESSION_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     delete:
       tags: [event]
       summary: 세션 삭제 (소프트 삭제, 소유자만)
@@ -821,6 +853,15 @@ components:
     SessionCreateRequest:
       type: object
       required: [title, order]
+      properties:
+        title:
+          type: string
+        order:
+          type: integer
+
+    SessionUpdateRequest:
+      type: object
+      description: 부분 수정(필드 optional).
       properties:
         title:
           type: string
