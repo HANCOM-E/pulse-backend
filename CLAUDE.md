@@ -170,6 +170,7 @@ application-secret.yml
 - **비밀번호**: 반드시 `BCryptPasswordEncoder`로 해시. 평문 저장 금지.
 - **시크릿**: API 키·DB 비번은 `application-local.yml`/`.env`(커밋 금지)에 두고, 템플릿만 커밋합니다.
 - **실시간 페이로드**: 폴링과 SSE는 동일한 스냅샷 스키마를 반환해야 합니다(전송 방식이 바뀌어도 프론트에 새지 않게).
+- **테스트**: 서비스/도메인 로직은 `@DataJpaTest` + 실제 레포로 서비스를 `new`로 수동 조립해 H2로 검증합니다(`@DataJpaTest`는 `@Service` 빈을 안 올림). write(생성·수정·삭제) 뒤 검증 읽기 전에는 `em.flush(); em.clear();`로 1차 캐시를 비워 **DB에서 다시 읽어** 확인합니다(캐시가 통과시키는 오탐 방지). 테스트명은 서술형 한글 + given/when/then 구조.
 
 ## 프론트엔드 연동 원칙
 
