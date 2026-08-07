@@ -1,0 +1,1144 @@
+openapi: 3.0.3
+info:
+  title: Pulse API
+  version: 0.3.0
+  description: >
+    실시간 이벤트 피드백 모니터링 API. 팀 API 명세서와 정합(2026-08-06).
+    식별자 규칙: 단일 이벤트 리소스(공개 읽기 + 소유자 쓰기)는 /events/{eventCode}로 통일,
+    교차 관리인 모더레이션 큐만 /admin/feedbacks. 이벤트 내부 PK(id)는 URL에 노출하지 않고 경로엔 eventCode 사용.
+    단, 세션은 sessionId(PK)를 경로·소감 제출(FeedbackSubmitRequest)에서 식별자로 사용함(의도된 예외).
+    공개 응답은 좁힌 뷰(EventView/SessionView/FeedbackView/PublicReport)로 내부 필드 제외.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: event
+  - name: feedback
+  - name: admin
+  - name: report
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: 로그인
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          description: "없는 사용자 / 비밀번호 불일치 (code: INVALID_CREDENTIALS)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: 회원가입 (가입과 동시에 자동 로그인)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: 가입 성공, accessToken 즉시 발급
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupResponse"
+        "400":
+          description: "이메일 형식 오류 / 비밀번호 정책 위반 (code: VALIDATION_ERROR)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 가입된 이메일 (code: EMAIL_ALREADY_EXISTS)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events:
+    post:
+      tags: [event]
+      summary: 이벤트 생성 (인증)
+      responses:
+        "201":
+          description: 생성 성공 (status = DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "400":
+          description: "제목 누락/길이 초과 (code: VALIDATION_ERROR)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreateRequest"
+    get:
+      tags: [event]
+      summary: 내 이벤트 목록 조회 (인증)
+      description: 페이지네이션 없음(v1). {items} 봉투로 seam 확보.
+      responses:
+        "200":
+          description: 이벤트 목록
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventListResponse"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}:
+    get:
+      tags: [event]
+      summary: 이벤트 상세 조회 (공개)
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: 이벤트 상세 (공개 뷰, 내부 id·ownerId 제외)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventView"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags: [event]
+      summary: 이벤트 상태 전이 · 제목/설명 수정 (소유자만)
+      description: 전 필드 optional 부분 수정. status와 title/description 동시 전송 허용.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdateRequest"
+      responses:
+        "200":
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "유효하지 않은 상태 전이 (code: INVALID_EVENT_STATE_TRANSITION)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [event]
+      summary: 이벤트 삭제 (소프트 삭제, 소유자만)
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "204":
+          description: 삭제 성공 (status = DELETED)
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: EVENT_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/sessions:
+    get:
+      tags: [event]
+      summary: 세션 목록 조회 (공개)
+      security: []
+      description: 게스트 소감 제출 대상 선택 + 소유자 관리 공용. DELETED 제외.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: 세션 목록 (공개 뷰, {items} 봉투)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionListResponse"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [event]
+      summary: 세션 생성 (소유자만)
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCreateRequest"
+      responses:
+        "201":
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 이벤트 (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/sessions/{sessionId}:
+    patch:
+      tags: [event]
+      summary: 세션 수정 (제목·순서, 소유자만)
+      description: 부분 수정(필드 optional).
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/SessionIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionUpdateRequest"
+      responses:
+        "200":
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 세션 (code: SESSION_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [event]
+      summary: 세션 삭제 (소프트 삭제, 소유자만)
+      description: 연결된 Feedback 존재 여부는 삭제 조건이 아님.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/SessionIdPath"
+      responses:
+        "204":
+          description: 삭제 성공 (status = DELETED)
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 세션 (code: SESSION_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/feedbacks:
+    post:
+      tags: [feedback]
+      summary: 소감 제출 (공개, 클라이언트 태깅 계약)
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - name: X-Client-Id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: 익명 브라우저 UUID(FE localStorage). 레이트리밋 키. 없으면 IP 폴백.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackSubmitRequest"
+      responses:
+        "201":
+          description: 제출 성공 (제출자 본인 소감 회수)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackView"
+        "400":
+          description: "값 검증 실패 (code: VALIDATION_ERROR)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "Event가 LIVE 아님 (code: EVENT_NOT_LIVE)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: "제출 빈도 초과 — (sessionId, X-Client-Id→IP)당 분당 3회 (code: RATE_LIMIT_EXCEEDED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [feedback]
+      summary: 실시간 집계 조회 (폴링 스냅샷, 공개)
+      security: []
+      description: 서버 집계(순수 SQL). VISIBLE 소감 기준. 폴링/SSE 동일 모양.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - name: sessionId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: VISIBLE Feedback 집계 스냅샷
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackSnapshot"
+
+  /events/{eventCode}/feedbacks/stream:
+    get:
+      tags: [feedback]
+      summary: 실시간 집계 구독 (SSE, 스트레치)
+      security: []
+      description: 공개. 각 이벤트 data는 FeedbackSnapshot JSON.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: text/event-stream 으로 FeedbackSnapshot 반복 전송
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /events/{eventCode}/report/generate:
+    post:
+      tags: [report]
+      summary: 리포트 생성 요청 (소유자만, 비동기)
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "202":
+          description: 비동기 처리 시작, 상태는 GENERATING
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "ENDED 아님(code: EVENT_NOT_ENDED) / 이미 생성중·완료(code: REPORT_ALREADY_EXISTS)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: "LLM 호출 실패 (code: REPORT_GENERATION_FAILED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/report:
+    get:
+      tags: [report]
+      summary: 리포트 조회 (공개 + 소유자, auth 인식)
+      security:
+        - {}
+        - bearerAuth: []
+      description: 소유자(인증)는 isPublic 무관 Report 전체, 게스트(비인증)는 isPublic=true일 때만 PublicReport.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: 소유자면 Report 전체, 게스트면 PublicReport
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/Report"
+                  - $ref: "#/components/schemas/PublicReport"
+        "404":
+          description: "리포트 없음 / (게스트에게) 비공개 (code: REPORT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags: [report]
+      summary: 리포트 공개 여부 토글 (소유자만)
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportPublishRequest"
+      responses:
+        "200":
+          description: 토글된 Report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "리포트 없음 — 아직 생성 전 (code: REPORT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/feedbacks:
+    get:
+      tags: [admin]
+      summary: 모더레이션 큐 조회 (소유자만)
+      description: 관리자 풀뷰(toxic/taggerVersion/status 포함). {items} 봉투.
+      parameters:
+        - name: eventCode
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 특정 이벤트로 좁힘(없으면 내 전체 이벤트)
+        - name: sessionId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: 특정 세션으로 좁힘
+        - name: toxic
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: includeHidden
+          in: query
+          required: false
+          description: true면 HIDDEN 상태 소감도 포함
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: 모더레이션 큐 (AdminFeedbackView 목록)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackListResponse"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/feedbacks/{feedbackId}/hide:
+    patch:
+      tags: [admin]
+      summary: 소감 숨김 (소유자만)
+      parameters:
+        - $ref: "#/components/parameters/FeedbackIdPath"
+      responses:
+        "200":
+          description: status = HIDDEN 으로 전이된 Feedback(풀뷰)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 소감 (code: FEEDBACK_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: FEEDBACK_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/feedbacks/{feedbackId}/show:
+    patch:
+      tags: [admin]
+      summary: 소감 숨김 해제 (소유자만)
+      parameters:
+        - $ref: "#/components/parameters/FeedbackIdPath"
+      responses:
+        "200":
+          description: status = VISIBLE 로 전이된 Feedback(풀뷰)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 소감 (code: FEEDBACK_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: FEEDBACK_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/feedbacks/{feedbackId}/delete:
+    patch:
+      tags: [admin]
+      summary: 소감 삭제 (소프트 삭제, 소유자만)
+      parameters:
+        - $ref: "#/components/parameters/FeedbackIdPath"
+      responses:
+        "200":
+          description: status = DELETED 로 전이된 Feedback(풀뷰)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 소감 (code: FEEDBACK_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: FEEDBACK_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    EventCodePath:
+      name: eventCode
+      in: path
+      required: true
+      schema:
+        type: string
+    SessionIdPath:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    FeedbackIdPath:
+      name: feedbackId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 에러 코드 v1(18개).
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_CREDENTIALS
+            - UNAUTHORIZED
+            - NOT_OWNER
+            - EMAIL_ALREADY_EXISTS
+            - EVENT_NOT_FOUND
+            - SESSION_NOT_FOUND
+            - FEEDBACK_NOT_FOUND
+            - REPORT_NOT_FOUND
+            - EVENT_NOT_LIVE
+            - INVALID_EVENT_STATE_TRANSITION
+            - EVENT_ALREADY_DELETED
+            - FEEDBACK_ALREADY_DELETED
+            - EVENT_NOT_ENDED
+            - REPORT_ALREADY_EXISTS
+            - RATE_LIMIT_EXCEEDED
+            - REPORT_GENERATION_FAILED
+            - INTERNAL_ERROR
+        message:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthTokenResponse:
+      type: object
+      required: [accessToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: 초 단위, 1시간 = 3600
+          example: 3600
+
+    SignupRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 32
+          description: 8~32자, 영문+숫자 각 1자 이상 필수, 특수문자 허용.
+          pattern: '^(?=.*[A-Za-z])(?=.*\d).+$'
+
+    SignupResponse:
+      type: object
+      required: [id, email, createdAt, accessToken, expiresIn]
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 3600
+
+    EventStatus:
+      type: string
+      enum: [DRAFT, LIVE, ENDED, DELETED]
+
+    Event:
+      type: object
+      description: 소유자·인증 응답용 전체 뷰.
+      required: [id, code, title, ownerId, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: 참가자 진입 링크용 공개 식별자, UNIQUE
+        title:
+          type: string
+          minLength: 2
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        ownerId:
+          type: integer
+          format: int64
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        createdAt:
+          type: string
+          format: date-time
+
+    EventView:
+      type: object
+      description: 공개 이벤트 뷰 (내부 id·ownerId 제외).
+      required: [code, title, status, createdAt]
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        createdAt:
+          type: string
+          format: date-time
+
+    EventListResponse:
+      type: object
+      description: 목록 봉투(페이지네이션 seam).
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+
+    EventCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+
+    EventUpdateRequest:
+      type: object
+      description: 부분 수정(모든 필드 optional). code·ownerId·createdAt은 수정 불가.
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 60
+        description:
+          type: string
+          maxLength: 500
+        status:
+          type: string
+          enum: [LIVE, ENDED]
+
+    Session:
+      type: object
+      description: 소유자 응답용 전체 뷰.
+      required: [id, eventId, title, order, status]
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        order:
+          type: integer
+        status:
+          type: string
+          enum: [ACTIVE, DELETED]
+
+    SessionView:
+      type: object
+      description: 공개 세션 뷰 (eventId 제외).
+      required: [id, title, order]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        order:
+          type: integer
+
+    SessionListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionView"
+
+    SessionCreateRequest:
+      type: object
+      required: [title, order]
+      properties:
+        title:
+          type: string
+        order:
+          type: integer
+
+    SessionUpdateRequest:
+      type: object
+      description: 부분 수정(필드 optional).
+      properties:
+        title:
+          type: string
+        order:
+          type: integer
+
+    Sentiment:
+      type: string
+      enum: [POS, NEU, NEG, UNKNOWN]
+      description: UNKNOWN은 태깅 실패(NEU와 다름).
+
+    FeedbackSubmitRequest:
+      type: object
+      required: [sessionId, text, sentiment, toxic, keywords, taggerVersion]
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+        sentiment:
+          $ref: "#/components/schemas/Sentiment"
+        toxic:
+          type: boolean
+        keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 20
+          minItems: 0
+          maxItems: 5
+          uniqueItems: true
+        taggerVersion:
+          type: string
+
+    FeedbackView:
+      type: object
+      description: 공개용 소감 뷰 (모더레이션 필드 제외).
+      required: [id, sessionId, text, sentiment, keywords, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+        text:
+          type: string
+        sentiment:
+          $ref: "#/components/schemas/Sentiment"
+        keywords:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminFeedbackView:
+      type: object
+      description: 관리자 풀뷰. /admin/* 응답 전용.
+      required: [id, sessionId, text, sentiment, toxic, keywords, taggerVersion, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        sessionId:
+          type: integer
+          format: int64
+        text:
+          type: string
+        sentiment:
+          $ref: "#/components/schemas/Sentiment"
+        toxic:
+          type: boolean
+        keywords:
+          type: array
+          items:
+            type: string
+        taggerVersion:
+          type: string
+        status:
+          type: string
+          enum: [VISIBLE, HIDDEN, DELETED]
+        createdAt:
+          type: string
+          format: date-time
+
+    FeedbackListResponse:
+      type: object
+      description: 관리자 목록 봉투(페이지네이션 seam).
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFeedbackView"
+
+    KeywordCount:
+      type: object
+      required: [keyword, count]
+      properties:
+        keyword:
+          type: string
+        count:
+          type: integer
+
+    SentimentBreakdown:
+      type: object
+      description: sentiment != UNKNOWN 집계 (긍정·중립·부정 건수).
+      required: [POS, NEU, NEG]
+      properties:
+        POS:
+          type: integer
+        NEU:
+          type: integer
+        NEG:
+          type: integer
+
+    FeedbackSnapshot:
+      type: object
+      description: 서버 집계 스냅샷.
+      required: [sentimentBreakdown, unclassifiedCount, topKeywords, recentFeedbacks]
+      properties:
+        sentimentBreakdown:
+          $ref: "#/components/schemas/SentimentBreakdown"
+        unclassifiedCount:
+          type: integer
+          description: sentiment = UNKNOWN 건수
+        topKeywords:
+          type: array
+          description: 빈도순 상위 10
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/KeywordCount"
+        recentFeedbacks:
+          type: array
+          description: 최신 50 (FeedbackView)
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/FeedbackView"
+
+    Report:
+      type: object
+      description: 소유자 조회·생성·토글 응답용 전체 뷰.
+      required: [id, eventId, status, isPublic]
+      properties:
+        id:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [GENERATING, GENERATED, FAILED]
+          description: NONE은 개념적 상태(행 없음).
+        summaryText:
+          type: string
+          nullable: true
+        sentimentBreakdown:
+          allOf:
+            - $ref: "#/components/schemas/SentimentBreakdown"
+          nullable: true
+        topKeywords:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordCount"
+          nullable: true
+        isPublic:
+          type: boolean
+        generatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ReportPublishRequest:
+      type: object
+      required: [isPublic]
+      properties:
+        isPublic:
+          type: boolean
+
+    PublicReport:
+      type: object
+      description: 게스트 공개 리포트 뷰.
+      required: [summaryText, sentimentBreakdown, topKeywords]
+      properties:
+        summaryText:
+          type: string
+        sentimentBreakdown:
+          $ref: "#/components/schemas/SentimentBreakdown"
+        topKeywords:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordCount"
