@@ -11,13 +11,12 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.TestConstructor;
 
 @DataJpaTest
-// 스프링 테스트에서 "생성자 주입"을 쓰려면 이게 필요하다.
 // 이게 없으면 JUnit이 생성자 파라미터를 어떻게 채울지 몰라 ParameterResolutionException.
 // ALL = 생성자의 모든 파라미터를 스프링 빈으로 자동 주입.
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 class EventPersistenceTest {
 
-    // 생성자 주입: 강의에서 배운 그거.
+    // 생성자 주입:
     // @DataJpaTest가 이 테스트 객체를 만들 때 EventRepository(프록시 빈)와
     // TestEntityManager(빈)를 이 생성자로 넣어준다 = DI.
     // ↓ 넘겨받은 걸 필드에 "저장"해야 @Test 메서드에서 쓸 수 있다. (네가 빠뜨린 부분)
@@ -80,7 +79,6 @@ class EventPersistenceTest {
 
         // then: 이제 LAZY 컬렉션을 처음 건드리면, DB에서 로딩하려 하지만
         //       연결된 세션이 없어서 LazyInitializationException이 터진다.
-        //       ★ 이게 실무에서 "컨트롤러/뷰에서 LAZY 필드 만졌더니 터지는" 바로 그 상황.
         assertThatThrownBy(() -> found.getSessions().size()).isInstanceOf(LazyInitializationException.class);
     }
 }
