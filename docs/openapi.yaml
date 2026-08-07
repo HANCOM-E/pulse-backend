@@ -8,6 +8,10 @@ info:
     교차 관리인 모더레이션 큐만 /admin/feedbacks. 이벤트 내부 PK(id)는 URL에 노출하지 않고 경로엔 eventCode 사용.
     단, 세션은 sessionId(PK)를 경로·소감 제출(FeedbackSubmitRequest)에서 식별자로 사용함(의도된 예외).
     공개 응답은 좁힌 뷰(EventView/SessionView/FeedbackView/PublicReport)로 내부 필드 제외.
+    인증: JWT는 응답 바디가 아니라 HttpOnly 쿠키(accessToken)로 발급/전송한다(XSS 토큰 탈취 방어).
+    cross-site(FE Vercel ↔ BE Render)라 쿠키는 SameSite=None; Secure. SameSite 보호가 없으므로 CSRF는
+    double-submit 토큰으로 막는다: 서버가 XSRF-TOKEN 쿠키(비-HttpOnly)를 내려주고, 상태변경 요청은 그 값을
+    X-XSRF-TOKEN 헤더로 되돌려보내야 한다.
 servers:
   - url: /api/v1
 tags:
@@ -17,7 +21,7 @@ tags:
   - name: admin
   - name: report
 security:
-  - bearerAuth: []
+  - cookieAuth: []
 paths:
   /auth/login:
     post:
@@ -32,11 +36,18 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: 로그인 성공
+          description: >
+            로그인 성공. accessToken을 HttpOnly 쿠키로 발급(Set-Cookie), 바디엔 로그인한 유저 정보만.
+            CSRF용 XSRF-TOKEN 쿠키도 함께 내려간다.
+          headers:
+            Set-Cookie:
+              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthTokenResponse"
+                $ref: "#/components/schemas/AuthUser"
         "401":
           description: "없는 사용자 / 비밀번호 불일치 (code: INVALID_CREDENTIALS)"
           content:
@@ -57,11 +68,16 @@ paths:
               $ref: "#/components/schemas/SignupRequest"
       responses:
         "201":
-          description: 가입 성공, accessToken 즉시 발급
+          description: 가입 성공, accessToken을 HttpOnly 쿠키로 즉시 발급(자동 로그인). 바디엔 유저 정보만.
+          headers:
+            Set-Cookie:
+              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SignupResponse"
+                $ref: "#/components/schemas/AuthUser"
         "400":
           description: "이메일 형식 오류 / 비밀번호 정책 위반 (code: VALIDATION_ERROR)"
           content:
@@ -70,6 +86,38 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: "이미 가입된 이메일 (code: EMAIL_ALREADY_EXISTS)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: 로그아웃 (accessToken 쿠키 만료)
+      responses:
+        "204":
+          description: 로그아웃 성공. accessToken 쿠키를 만료시키는 Set-Cookie 반환.
+          headers:
+            Set-Cookie:
+              description: "accessToken=; Max-Age=0 (쿠키 삭제)"
+              schema:
+                type: string
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: 현재 로그인 유저 조회 (새로고침 시 상태 복원)
+      description: HttpOnly 쿠키라 FE가 토큰을 못 읽으므로, 로그인 여부·유저 식별은 이 엔드포인트로 확인한다.
+      responses:
+        "200":
+          description: 현재 유저
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: "미인증 (code: UNAUTHORIZED)"
           content:
             application/json:
               schema:
@@ -469,7 +517,7 @@ paths:
       summary: 리포트 조회 (공개 + 소유자, auth 인식)
       security:
         - {}
-        - bearerAuth: []
+        - cookieAuth: []
       description: 소유자(인증)는 isPublic 무관 Report 전체, 게스트(비인증)는 isPublic=true일 때만 PublicReport.
       parameters:
         - $ref: "#/components/parameters/EventCodePath"
@@ -692,10 +740,11 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: JWT를 담은 HttpOnly 쿠키. 서버가 로그인·회원가입 시 Set-Cookie로 발급.
 
   parameters:
     EventCodePath:
@@ -759,16 +808,20 @@ components:
         password:
           type: string
 
-    AuthTokenResponse:
+    AuthUser:
       type: object
-      required: [accessToken, expiresIn]
+      description: 로그인·회원가입·/auth/me 공통 응답(토큰은 바디에 없음, 쿠키로 발급).
+      required: [id, email, createdAt]
       properties:
-        accessToken:
-          type: string
-        expiresIn:
+        id:
           type: integer
-          description: 초 단위, 1시간 = 3600
-          example: 3600
+          format: int64
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
 
     SignupRequest:
       type: object
@@ -783,25 +836,6 @@ components:
           maxLength: 32
           description: 8~32자, 영문+숫자 각 1자 이상 필수, 특수문자 허용.
           pattern: '^(?=.*[A-Za-z])(?=.*\d).+$'
-
-    SignupResponse:
-      type: object
-      required: [id, email, createdAt, accessToken, expiresIn]
-      properties:
-        id:
-          type: integer
-          format: int64
-        email:
-          type: string
-          format: email
-        createdAt:
-          type: string
-          format: date-time
-        accessToken:
-          type: string
-        expiresIn:
-          type: integer
-          example: 3600
 
     EventStatus:
       type: string
@@ -907,12 +941,13 @@ components:
           type: integer
         status:
           type: string
-          enum: [ACTIVE, DELETED]
+          description: ACTIVE=피드백 수집 중, CLOSED=마감(신규 소감 차단, 조회는 가능), DELETED=소프트 삭제.
+          enum: [ACTIVE, CLOSED, DELETED]
 
     SessionView:
       type: object
-      description: 공개 세션 뷰 (eventId 제외).
-      required: [id, title, order]
+      description: 공개 세션 뷰 (eventId 제외). DELETED는 목록에 노출되지 않음.
+      required: [id, title, order, status]
       properties:
         id:
           type: integer
@@ -921,6 +956,10 @@ components:
           type: string
         order:
           type: integer
+        status:
+          type: string
+          description: ACTIVE=소감 제출 가능, CLOSED=마감.
+          enum: [ACTIVE, CLOSED]
 
     SessionListResponse:
       type: object
@@ -942,12 +981,15 @@ components:
 
     SessionUpdateRequest:
       type: object
-      description: 부분 수정(필드 optional).
+      description: 부분 수정(필드 optional). status로 ACTIVE↔CLOSED 전환(마감/재개). DELETED는 DELETE 엔드포인트로.
       properties:
         title:
           type: string
         order:
           type: integer
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED]
 
     Sentiment:
       type: string
