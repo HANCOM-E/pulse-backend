@@ -5,7 +5,8 @@ info:
   description: >
     실시간 이벤트 피드백 모니터링 API. 팀 API 명세서와 정합(2026-08-06).
     식별자 규칙: 단일 이벤트 리소스(공개 읽기 + 소유자 쓰기)는 /events/{eventCode}로 통일,
-    교차 관리인 모더레이션 큐만 /admin/feedbacks. 내부 PK(id)는 URL에 노출하지 않음.
+    교차 관리인 모더레이션 큐만 /admin/feedbacks. 이벤트 내부 PK(id)는 URL에 노출하지 않고 경로엔 eventCode 사용.
+    단, 세션은 sessionId(PK)를 경로·소감 제출(FeedbackSubmitRequest)에서 식별자로 사용함(의도된 예외).
     공개 응답은 좁힌 뷰(EventView/SessionView/FeedbackView/PublicReport)로 내부 필드 제외.
 servers:
   - url: /api/v1
@@ -160,8 +161,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Event"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
           content:
             application/json:
               schema:
@@ -180,8 +193,20 @@ paths:
       responses:
         "204":
           description: 삭제 성공 (status = DELETED)
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 code (code: EVENT_NOT_FOUND)"
           content:
             application/json:
               schema:
@@ -232,6 +257,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -266,6 +297,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -288,6 +325,12 @@ paths:
       responses:
         "204":
           description: 삭제 성공 (status = DELETED)
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -395,6 +438,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Report"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -418,7 +467,9 @@ paths:
     get:
       tags: [report]
       summary: 리포트 조회 (공개 + 소유자, auth 인식)
-      security: []
+      security:
+        - {}
+        - bearerAuth: []
       description: 소유자(인증)는 isPublic 무관 Report 전체, 게스트(비인증)는 isPublic=true일 때만 PublicReport.
       parameters:
         - $ref: "#/components/parameters/EventCodePath"
@@ -455,6 +506,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Report"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -506,6 +563,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FeedbackListResponse"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -526,6 +589,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -558,6 +627,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -590,6 +665,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminFeedbackView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
           content:
@@ -993,11 +1074,13 @@ components:
         topKeywords:
           type: array
           description: 빈도순 상위 10
+          maxItems: 10
           items:
             $ref: "#/components/schemas/KeywordCount"
         recentFeedbacks:
           type: array
           description: 최신 50 (FeedbackView)
+          maxItems: 50
           items:
             $ref: "#/components/schemas/FeedbackView"
 
