@@ -51,12 +51,15 @@ public class EventService {
     public EventResponse create(Long ownerId, EventCreateRequest req) {
         User owner = userRepository.getReferenceById(ownerId);
         for (int attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+            String code = randomCode();
             try {
-                Event event = new Event(randomCode(), req.title(), req.description(), owner);
+                Event event = new Event(code, req.title(), req.description(), owner);
                 eventRepository.saveAndFlush(event); // INSERT 즉시 실행 → 여기서 UNIQUE 위반이 잡힘
                 return EventResponse.from(event);
             } catch (DataIntegrityViolationException e) {
-                // code UNIQUE 충돌(동시 생성 레이스) → 새 코드로 재시도
+                // code가 이미 존재하면 유니크 충돌 → 새 코드로 재시도.
+                // 그 외(FK·not-null 등)는 재시도해도 같은 실패라 즉시 전파해 원인을 감추지 않는다.
+                if (!eventRepository.existsByCode(code)) throw e;
             }
         }
         throw new ApiException(ErrorCode.INTERNAL_ERROR);
