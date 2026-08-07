@@ -11,6 +11,7 @@ import com.hancome.pulse.event.dto.EventUpdateRequest;
 import com.hancome.pulse.event.dto.EventView;
 import java.security.SecureRandom;
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class EventService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int CODE_LENGTH = 8;
+    private static final int MAX_CODE_ATTEMPTS = 5;
 
     public EventService(EventRepository eventRepository, UserRepository userRepository) {
         this.eventRepository = eventRepository;
@@ -35,17 +37,29 @@ public class EventService {
     /**
      * 이벤트를 생성한다. 상태는 {@code DRAFT}로 시작하고 공개 코드를 채번한다.
      *
+     * <p>코드 유일성은 DB {@code UNIQUE} 제약이 최종 방어선이다. 사전 {@code existsByCode} 검사는 동시 생성 사이의 레이스를 막지 못하므로
+     * (check-then-insert), 여기서 랜덤 코드로 즉시 저장을 시도하고 유니크 충돌({@link DataIntegrityViolationException})이 나면 새
+     * 코드로 재시도한다. {@code 62^8} 공간이라 충돌은 사실상 없고, {@link #MAX_CODE_ATTEMPTS}회 연속 충돌은 비정상으로 본다.
+     *
+     * <p>재시도가 성립하려면 실패한 저장의 트랜잭션이 격리돼야 하므로 이 메서드엔 {@code @Transactional}을 붙이지 않는다(각
+     * {@code saveAndFlush}가 리포지토리 단독 트랜잭션으로 커밋/롤백된다).
+     *
      * @param ownerId 인증된 주최자 PK
      * @param req 제목·설명
      * @return 생성된 이벤트 전체 뷰
      */
-    @Transactional
     public EventResponse create(Long ownerId, EventCreateRequest req) {
-        String code = generateUniqueCode();
         User owner = userRepository.getReferenceById(ownerId);
-        Event event = new Event(code, req.title(), req.description(), owner);
-        eventRepository.save(event);
-        return EventResponse.from(event);
+        for (int attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+            try {
+                Event event = new Event(randomCode(), req.title(), req.description(), owner);
+                eventRepository.saveAndFlush(event); // INSERT 즉시 실행 → 여기서 UNIQUE 위반이 잡힘
+                return EventResponse.from(event);
+            } catch (DataIntegrityViolationException e) {
+                // code UNIQUE 충돌(동시 생성 레이스) → 새 코드로 재시도
+            }
+        }
+        throw new ApiException(ErrorCode.INTERNAL_ERROR);
     }
 
     /**
@@ -133,18 +147,15 @@ public class EventService {
     }
 
     /**
-     * 충돌하지 않는 공개 이벤트 코드를 만든다.
+     * 랜덤 공개 코드를 만든다(유일성 보장은 호출부의 저장 재시도 + DB UNIQUE 제약이 담당).
      *
-     * @return 기존과 겹치지 않는 코드
+     * @return {@link #CODE_LENGTH}자리 base62 코드
      */
-    private String generateUniqueCode() {
-        while (true) {
-            StringBuilder sb = new StringBuilder(CODE_LENGTH);
-            for (int i = 0; i < CODE_LENGTH; i++) {
-                sb.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
-            }
-            String code = sb.toString();
-            if (!eventRepository.existsByCode(code)) return code;
+    private String randomCode() {
+        StringBuilder sb = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            sb.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
         }
+        return sb.toString();
     }
 }

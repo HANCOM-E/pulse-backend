@@ -5,6 +5,7 @@ import com.hancome.pulse.event.dto.EventListResponse;
 import com.hancome.pulse.event.dto.EventResponse;
 import com.hancome.pulse.event.dto.EventUpdateRequest;
 import com.hancome.pulse.event.dto.EventView;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,7 @@ public class EventController {
         return eventService.listMine(userId);
     }
 
+    @Operation(security = {}) // 공개 엔드포인트 — 문서에서 전역 bearerAuth 요구를 해제
     @GetMapping("/{eventCode}")
     public EventView getPublic(@PathVariable String eventCode) {
         return eventService.getPublic(eventCode);

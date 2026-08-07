@@ -58,6 +58,8 @@ class EventServiceTest {
 
         // when
         EventResponse res = eventService.create(owner.getId(), req);
+        em.flush();
+        em.clear();
 
         // then
         assertThat(res.id()).isNotNull();
