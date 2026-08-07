@@ -1053,21 +1053,25 @@ components:
         count:
           type: integer
 
+    SentimentBreakdown:
+      type: object
+      description: sentiment != UNKNOWN 집계 (긍정·중립·부정 건수).
+      required: [POS, NEU, NEG]
+      properties:
+        POS:
+          type: integer
+        NEU:
+          type: integer
+        NEG:
+          type: integer
+
     FeedbackSnapshot:
       type: object
       description: 서버 집계 스냅샷.
       required: [sentimentBreakdown, unclassifiedCount, topKeywords, recentFeedbacks]
       properties:
         sentimentBreakdown:
-          type: object
-          description: sentiment != UNKNOWN 집계
-          properties:
-            POS:
-              type: integer
-            NEU:
-              type: integer
-            NEG:
-              type: integer
+          $ref: "#/components/schemas/SentimentBreakdown"
         unclassifiedCount:
           type: integer
           description: sentiment = UNKNOWN 건수
@@ -1103,12 +1107,13 @@ components:
           type: string
           nullable: true
         sentimentBreakdown:
-          type: object
+          allOf:
+            - $ref: "#/components/schemas/SentimentBreakdown"
           nullable: true
         topKeywords:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/KeywordCount"
           nullable: true
         isPublic:
           type: boolean
@@ -1132,8 +1137,8 @@ components:
         summaryText:
           type: string
         sentimentBreakdown:
-          type: object
+          $ref: "#/components/schemas/SentimentBreakdown"
         topKeywords:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/KeywordCount"
