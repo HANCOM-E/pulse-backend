@@ -17,6 +17,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -33,26 +36,40 @@ public class SecurityConfig {
      * @throws Exception 빌드 실패 시
      */
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
+    SecurityFilterChain filterChain(
+            HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter, AuthCookieProperties cookieProperties)
             throws Exception {
-        http.csrf(csrf -> csrf.disable()) // REST API라 CSRF 토큰 불필요
+        // CSRF: 인증을 쿠키로 하므로 double-submit 토큰이 필요하다. XSRF-TOKEN 쿠키(비-HttpOnly, JS가 읽음)의
+        // Secure·SameSite는 accessToken 쿠키와 동일 정책으로(환경별). FE는 그 값을 X-XSRF-TOKEN 헤더로 되돌려보낸다.
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieCustomizer(
+                cookie -> cookie.sameSite(cookieProperties.sameSite()).secure(cookieProperties.secure()));
+
+        http.csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository)
+                        .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
+                        // 로그인·회원가입은 아직 토큰이 없는 진입점이라 CSRF 예외. 나머지 상태변경은 토큰 필요.
+                        .ignoringRequestMatchers("/api/v1/auth/login", "/api/v1/auth/signup"))
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
-                        .requestMatchers("/api/v1/health", "/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**")
-                        .permitAll() // 헬스체크·인증·Swagger 문서만 공개
+                        .requestMatchers("/api/v1/health", "/swagger-ui/**", "/v3/api-docs/**")
+                        .permitAll() // 헬스체크·Swagger 문서 공개
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/logout")
+                        .permitAll() // 로그인·회원가입·로그아웃은 공개(/auth/me는 인증 필요 → anyRequest로 빠짐)
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*")
                         .permitAll() // 이벤트 단건 공개 조회. 목록(GET /events)·쓰기는 인증 유지
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
-                .exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
-                            res.setHeader("WWW-Authenticate", "Bearer"); // RFC 7235: 401은 인증 방식(Bearer)을 알린다
-                            writeError(res, ErrorCode.UNAUTHORIZED);
-                        })
-                        .accessDeniedHandler((req, res, e) -> writeError(res, ErrorCode.NOT_OWNER)))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(
+                                (req, res, e) -> writeError(res, ErrorCode.UNAUTHORIZED))
+                        // CSRF 실패(토큰 없음/불일치)와 소유권 실패를 구분해 응답한다.
+                        .accessDeniedHandler((req, res, e) -> writeError(
+                                res, e instanceof CsrfException ? ErrorCode.CSRF_TOKEN_INVALID : ErrorCode.NOT_OWNER)))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // 지연 CSRF 토큰을 강제 렌더해 XSRF-TOKEN 쿠키가 응답에 실리게 한다.
+                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
         return http.build();
     }
 
@@ -83,11 +100,14 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource(@Value("${cors.allowed-origins}") List<String> allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
+        // setAllowedOriginPatterns는 credentials=true와 함께 써도, 매칭된 "실제 origin"을 반사해 내려준다
+        // (Access-Control-Allow-Origin에 * 대신 http://localhost:3000이 실림). setAllowedOrigins("*")는 credentials와 금지.
         config.setAllowedOriginPatterns(allowedOrigins); // 정확한 도메인(로컬은 http://localhost:*)
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*")); // Authorization, X-Client-Id 등 모두 허용
-        // JWT는 Authorization 헤더로 보내고 쿠키를 쓰지 않으므로 credentials 불필요.
-        config.setAllowCredentials(false);
+        config.setAllowedHeaders(List.of("*")); // X-Client-Id, X-XSRF-TOKEN 등 모두 허용
+        // 인증을 HttpOnly 쿠키로 하므로 자격증명 동반 요청을 허용해야 한다.
+        // → 응답에 Access-Control-Allow-Credentials: true 가 실려야 브라우저가 쿠키를 주고받는다.
+        config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

@@ -775,12 +775,13 @@ components:
       properties:
         code:
           type: string
-          description: 에러 코드 v1(19개).
+          description: 에러 코드 v1(20개).
           enum:
             - VALIDATION_ERROR
             - INVALID_CREDENTIALS
             - UNAUTHORIZED
             - NOT_OWNER
+            - CSRF_TOKEN_INVALID
             - EMAIL_ALREADY_EXISTS
             - EVENT_NOT_FOUND
             - SESSION_NOT_FOUND

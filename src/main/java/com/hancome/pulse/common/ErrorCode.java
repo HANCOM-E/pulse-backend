@@ -8,6 +8,7 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다"), // 401
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다"), // 401
     NOT_OWNER(HttpStatus.FORBIDDEN, "리소스의 소유자가 아닙니다"), // 403
+    CSRF_TOKEN_INVALID(HttpStatus.FORBIDDEN, "CSRF 토큰이 없거나 유효하지 않습니다"), // 403
 
     // 404 — 리소스별
     EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 이벤트입니다"), // 404
