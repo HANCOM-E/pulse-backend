@@ -1154,6 +1154,10 @@ components:
           allOf:
             - $ref: "#/components/schemas/SentimentBreakdown"
           nullable: true
+        unclassifiedCount:
+          type: integer
+          description: sentiment = UNKNOWN 건수
+          nullable: true
         topKeywords:
           type: array
           items:
@@ -1176,12 +1180,15 @@ components:
     PublicReport:
       type: object
       description: 게스트 공개 리포트 뷰.
-      required: [summaryText, sentimentBreakdown, topKeywords]
+      required: [summaryText, sentimentBreakdown, unclassifiedCount, topKeywords]
       properties:
         summaryText:
           type: string
         sentimentBreakdown:
           $ref: "#/components/schemas/SentimentBreakdown"
+        unclassifiedCount:
+          type: integer
+          description: sentiment = UNKNOWN 건수
         topKeywords:
           type: array
           items:
