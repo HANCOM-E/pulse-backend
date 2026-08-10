@@ -391,6 +391,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: SESSION_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /events/{eventCode}/feedbacks:
     post:
@@ -775,7 +781,7 @@ components:
       properties:
         code:
           type: string
-          description: 에러 코드 v1(20개).
+          description: 에러 코드 v1(21개).
           enum:
             - VALIDATION_ERROR
             - INVALID_CREDENTIALS
@@ -792,6 +798,7 @@ components:
             - INVALID_EVENT_STATE_TRANSITION
             - EVENT_ALREADY_DELETED
             - FEEDBACK_ALREADY_DELETED
+            - SESSION_ALREADY_DELETED
             - EVENT_NOT_ENDED
             - REPORT_ALREADY_EXISTS
             - RATE_LIMIT_EXCEEDED

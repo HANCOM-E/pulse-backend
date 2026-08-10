@@ -21,7 +21,7 @@ public class Session {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private SessionStatus status = SessionStatus.ACTIVE;
+    private SessionStatus status = SessionStatus.CLOSED;
 
     protected Session() {}
 

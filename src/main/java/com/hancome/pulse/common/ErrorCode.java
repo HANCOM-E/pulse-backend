@@ -22,6 +22,8 @@ public enum ErrorCode {
     INVALID_EVENT_STATE_TRANSITION(HttpStatus.CONFLICT, "유효하지 않은 상태 전이입니다"), // 409
     EVENT_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 이벤트입니다"), // 409
     FEEDBACK_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 소감입니다"), // 409
+    SESSION_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 세션입니다"), // 409
+    SESSION_CLOSED(HttpStatus.CONFLICT, "세션이 마감되어 소감을 받지 않습니다"), // 409
     EVENT_NOT_ENDED(HttpStatus.CONFLICT, "이벤트가 종료되지 않았습니다"), // 409
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "리포트가 이미 생성 중이거나 완료되었습니다"), // 409
 
