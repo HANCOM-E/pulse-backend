@@ -1,5 +1,6 @@
 package com.hancome.pulse.common;
 
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,11 +15,21 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class AuthCookieProperties {
+    private static final Set<String> ALLOWED_SAME_SITE = Set.of("None", "Lax", "Strict");
+
     private final boolean secure;
     private final String sameSite;
 
     public AuthCookieProperties(
             @Value("${auth.cookie.secure}") boolean secure, @Value("${auth.cookie.same-site}") String sameSite) {
+        // fail-closed: 잘못된 값으로 조용히 뜨지 않고 부팅을 막는다.
+        if (!ALLOWED_SAME_SITE.contains(sameSite)) {
+            throw new IllegalStateException("auth.cookie.same-site는 None|Lax|Strict 중 하나여야 합니다. 실제값: " + sameSite);
+        }
+        // SameSite=None은 Secure=true가 필수(브라우저가 None+비Secure 쿠키를 거부). 배포에서 env 짝을 놓치는 실수 차단.
+        if ("None".equals(sameSite) && !secure) {
+            throw new IllegalStateException("SameSite=None은 Secure=true가 필요합니다(AUTH_COOKIE_SECURE=true 설정 필요).");
+        }
         this.secure = secure;
         this.sameSite = sameSite;
     }

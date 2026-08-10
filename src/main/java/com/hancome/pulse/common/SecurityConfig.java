@@ -19,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -61,9 +62,11 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
-                .exceptionHandling(
-                        ex -> ex.authenticationEntryPoint((req, res, e) -> writeError(res, ErrorCode.UNAUTHORIZED))
-                                .accessDeniedHandler((req, res, e) -> writeError(res, ErrorCode.NOT_OWNER)))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(
+                                (req, res, e) -> writeError(res, ErrorCode.UNAUTHORIZED))
+                        // CSRF 실패(토큰 없음/불일치)와 소유권 실패를 구분해 응답한다.
+                        .accessDeniedHandler((req, res, e) -> writeError(
+                                res, e instanceof CsrfException ? ErrorCode.CSRF_TOKEN_INVALID : ErrorCode.NOT_OWNER)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 // 지연 CSRF 토큰을 강제 렌더해 XSRF-TOKEN 쿠키가 응답에 실리게 한다.
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
