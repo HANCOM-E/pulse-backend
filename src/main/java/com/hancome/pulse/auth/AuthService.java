@@ -1,9 +1,6 @@
 package com.hancome.pulse.auth;
 
-import com.hancome.pulse.auth.dto.LoginRequest;
-import com.hancome.pulse.auth.dto.SignupRequest;
-import com.hancome.pulse.auth.dto.SignupResponse;
-import com.hancome.pulse.auth.dto.TokenResponse;
+import com.hancome.pulse.auth.dto.*;
 import com.hancome.pulse.common.ApiException;
 import com.hancome.pulse.common.ErrorCode;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,7 +33,7 @@ public class AuthService {
      * @throws ApiException 이미 가입된 이메일이면 {@code EMAIL_ALREADY_EXISTS}
      */
     @Transactional
-    public SignupResponse signUp(SignupRequest req) {
+    public AuthResult signUp(SignupRequest req) {
         if (userRepository.findByEmail(req.email()).isPresent()) {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
@@ -49,8 +46,11 @@ public class AuthService {
         }
         // 가입과 동시에 토큰 발급(자동 로그인) — 팀 API 명세서 확정.
         String token = jwtProvider.generateToken(user.getId());
-        return new SignupResponse(
-                user.getId(), user.getEmail(), user.getCreatedAt(), token, jwtProvider.getExpirationInSeconds());
+
+        return new AuthResult(
+                new AuthUser(user.getId(), user.getEmail(), user.getCreatedAt()),
+                token,
+                jwtProvider.getExpirationInSeconds());
     }
 
     /**
@@ -60,7 +60,7 @@ public class AuthService {
      * @return accessToken + 만료(초)
      * @throws ApiException 이메일이 없거나 비밀번호가 틀리면 {@code INVALID_CREDENTIALS}(두 경우를 구별하지 않음)
      */
-    public TokenResponse login(LoginRequest req) {
+    public AuthResult login(LoginRequest req) {
         User user = userRepository.findByEmail(req.email()).orElse(null);
 
         // 유저가 없어도 더미 해시로 검증을 돌려 처리 시간을 맞춘다(이메일 존재 여부 유추 차단).
@@ -74,6 +74,14 @@ public class AuthService {
         }
 
         String token = jwtProvider.generateToken(user.getId());
-        return new TokenResponse(token, jwtProvider.getExpirationInSeconds());
+        return new AuthResult(
+                new AuthUser(user.getId(), user.getEmail(), user.getCreatedAt()),
+                token,
+                jwtProvider.getExpirationInSeconds());
+    }
+
+    public AuthUser getUser(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        return new AuthUser(user.getId(), user.getEmail(), user.getCreatedAt());
     }
 }
