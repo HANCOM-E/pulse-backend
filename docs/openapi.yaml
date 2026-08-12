@@ -853,7 +853,7 @@ components:
     Event:
       type: object
       description: 소유자·인증 응답용 전체 뷰.
-      required: [id, code, title, ownerId, status, createdAt]
+      required: [id, code, title, eventDate, ownerId, status, createdAt]
       properties:
         id:
           type: integer
@@ -869,6 +869,12 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        eventDate:
+          type: string
+          format: date
+          description: >-
+            행사가 열리는 달력 날짜(YYYY-MM-DD, 타임존 없음). 생성 시각 createdAt과 별개.
+            클라이언트는 문자열로 다루고, Date 객체 변환 시 로컬 타임존으로 하루 밀릴 수 있으니 date-only 파서 사용 권장.
         ownerId:
           type: integer
           format: int64
@@ -881,7 +887,7 @@ components:
     EventView:
       type: object
       description: 공개 이벤트 뷰 (내부 id·ownerId 제외).
-      required: [code, title, status, createdAt]
+      required: [code, title, eventDate, status, createdAt]
       properties:
         code:
           type: string
@@ -890,6 +896,12 @@ components:
         description:
           type: string
           nullable: true
+        eventDate:
+          type: string
+          format: date
+          description: >-
+            행사가 열리는 달력 날짜(YYYY-MM-DD, 타임존 없음).
+            클라이언트는 문자열로 다루고, Date 객체 변환 시 로컬 타임존으로 하루 밀릴 수 있으니 date-only 파서 사용 권장.
         status:
           $ref: "#/components/schemas/EventStatus"
         createdAt:
@@ -908,7 +920,7 @@ components:
 
     EventCreateRequest:
       type: object
-      required: [title]
+      required: [title, eventDate]
       properties:
         title:
           type: string
@@ -917,6 +929,12 @@ components:
         description:
           type: string
           maxLength: 500
+        eventDate:
+          type: string
+          format: date
+          description: >-
+            행사가 열리는 달력 날짜(YYYY-MM-DD, 타임존 없음). 생성 시각 createdAt과 별개.
+            클라이언트는 문자열로 다루고, Date 객체 변환 시 로컬 타임존으로 하루 밀릴 수 있으니 date-only 파서 사용 권장.
 
     EventUpdateRequest:
       type: object
@@ -932,6 +950,10 @@ components:
         status:
           type: string
           enum: [LIVE, ENDED]
+        eventDate:
+          type: string
+          format: date
+          description: 행사가 열리는 달력 날짜(YYYY-MM-DD, 타임존 없음). 보낸 경우만 반영.
 
     Session:
       type: object

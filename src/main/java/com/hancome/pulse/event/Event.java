@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +40,10 @@ public class Event {
 
     @Column(columnDefinition = "text")
     private String description;
+
+    // 행사가 실제로 열리는 날짜(생성 시각 createdAt과 별개). 날짜만 필요하므로 LocalDate.
+    @Column(name = "event_date", nullable = false)
+    private LocalDate eventDate;
 
     // 소유자(주최자). ★연관관계의 "주인" = FK(owner_id) 컬럼을 이 쪽이 가진다.
     // fetch = LAZY: owner를 실제로 꺼내 쓸 때까지 User SELECT를 미룬다.
@@ -68,10 +73,11 @@ public class Event {
 
     protected Event() {} // JPA가 리플렉션으로 쓰는 기본 생성자(외부 직접 호출 막으려 protected).
 
-    public Event(String code, String title, String description, User owner) {
+    public Event(String code, String title, String description, LocalDate eventDate, User owner) {
         this.code = code;
         this.title = title;
         this.description = description;
+        this.eventDate = eventDate;
         this.owner = owner;
     }
 
@@ -96,6 +102,10 @@ public class Event {
 
     public String getDescription() {
         return description;
+    }
+
+    public LocalDate getEventDate() {
+        return eventDate;
     }
 
     public User getOwner() {
@@ -123,6 +133,10 @@ public class Event {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public void setEventDate(LocalDate eventDate) {
+        this.eventDate = eventDate;
     }
 
     public void setStatus(EventStatus status) {

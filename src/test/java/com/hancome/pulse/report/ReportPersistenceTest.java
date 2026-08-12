@@ -35,7 +35,7 @@ class ReportPersistenceTest {
         // given
         User owner = new User("host@pulse.dev", "hashed-pw");
         em.persist(owner);
-        Event event = new Event("EVT-RPT", "리포트용 이벤트", "설명", owner);
+        Event event = new Event("EVT-RPT", "리포트용 이벤트", "설명", java.time.LocalDate.of(2026, 8, 15), owner);
         em.persist(event);
 
         Report report = new Report(event, "요약", "감정 분포", List.of("키워드"), false);

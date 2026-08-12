@@ -8,6 +8,7 @@ import com.hancome.pulse.auth.UserRepository;
 import com.hancome.pulse.common.ApiException;
 import com.hancome.pulse.common.ErrorCode;
 import com.hancome.pulse.event.dto.*;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -46,7 +47,10 @@ class EventServiceTest {
 
     private static final String TEST_EMAIL = "host@pulse.dev";
 
-    private static final EventCreateRequest TEST_CREATE_REQUEST = new EventCreateRequest("title", "description");
+    private static final LocalDate TEST_EVENT_DATE = LocalDate.of(2026, 8, 15);
+
+    private static final EventCreateRequest TEST_CREATE_REQUEST =
+            new EventCreateRequest("title", "description", TEST_EVENT_DATE);
 
     // ===================== create =====================
 
@@ -54,7 +58,7 @@ class EventServiceTest {
     void 이벤트를_생성하면_DRAFT와_공개코드가_부여되고_저장된다() {
         // given
         User owner = persistOwner(TEST_EMAIL);
-        EventCreateRequest req = new EventCreateRequest("봄 컨퍼런스", "설명입니다");
+        EventCreateRequest req = new EventCreateRequest("봄 컨퍼런스", "설명입니다", TEST_EVENT_DATE);
 
         // when
         EventResponse res = eventService.create(owner.getId(), req);
@@ -67,6 +71,7 @@ class EventServiceTest {
         assertThat(res.status()).isEqualTo(EventStatus.DRAFT);
         assertThat(res.ownerId()).isEqualTo(owner.getId());
         assertThat(res.title()).isEqualTo("봄 컨퍼런스");
+        assertThat(res.eventDate()).isEqualTo(TEST_EVENT_DATE);
         assertThat(eventRepository.findByCode(res.code())).isPresent();
     }
 
@@ -133,7 +138,8 @@ class EventServiceTest {
         em.clear();
 
         // when/then
-        assertThatThrownBy(() -> eventService.update(ownerB.getId(), code, new EventUpdateRequest(null, "desc", null)))
+        assertThatThrownBy(() ->
+                        eventService.update(ownerB.getId(), code, new EventUpdateRequest(null, "desc", null, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.NOT_OWNER);
@@ -146,7 +152,7 @@ class EventServiceTest {
         String code = eventService.create(owner.getId(), TEST_CREATE_REQUEST).code();
 
         // when
-        eventService.update(owner.getId(), code, new EventUpdateRequest("nextTitle", null, null));
+        eventService.update(owner.getId(), code, new EventUpdateRequest("nextTitle", null, null, null));
         em.flush();
         em.clear();
 
@@ -157,6 +163,22 @@ class EventServiceTest {
     }
 
     @Test
+    void 행사날짜도_보낸_경우_수정된다() {
+        // given
+        User owner = persistOwner(TEST_EMAIL);
+        String code = eventService.create(owner.getId(), TEST_CREATE_REQUEST).code();
+        LocalDate newDate = LocalDate.of(2026, 12, 25);
+
+        // when
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, null, newDate));
+        em.flush();
+        em.clear();
+
+        // then
+        assertThat(eventService.getPublic(code).eventDate()).isEqualTo(newDate);
+    }
+
+    @Test
     void DRAFT에서_세션이_있으면_LIVE로_전이된다() {
         // given
         User owner = persistOwner(TEST_EMAIL);
@@ -164,7 +186,7 @@ class EventServiceTest {
         attachSession(code);
 
         // when
-        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE));
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE, null));
         em.flush();
         em.clear();
 
@@ -181,8 +203,8 @@ class EventServiceTest {
         em.clear();
 
         // when/then
-        assertThatThrownBy(() ->
-                        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE)))
+        assertThatThrownBy(() -> eventService.update(
+                        owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.INVALID_EVENT_STATE_TRANSITION);
@@ -196,8 +218,8 @@ class EventServiceTest {
         attachSession(code);
 
         // when/then
-        assertThatThrownBy(() ->
-                        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.ENDED)))
+        assertThatThrownBy(() -> eventService.update(
+                        owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.ENDED, null)))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.INVALID_EVENT_STATE_TRANSITION);
@@ -209,12 +231,12 @@ class EventServiceTest {
         User owner = persistOwner(TEST_EMAIL);
         String code = eventService.create(owner.getId(), TEST_CREATE_REQUEST).code();
         attachSession(code);
-        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE));
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE, null));
         em.flush();
         em.clear();
 
         // when
-        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.ENDED));
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.ENDED, null));
         em.flush();
         em.clear();
 

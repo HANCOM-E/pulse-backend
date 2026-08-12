@@ -36,7 +36,7 @@ class EventPersistenceTest {
         User owner = new User("host@pulse.dev", "hashed-pw");
         em.persist(owner);
 
-        Event event = new Event("EVT-001", "봄 컨퍼런스", "설명입니다", owner);
+        Event event = new Event("EVT-001", "봄 컨퍼런스", "설명입니다", java.time.LocalDate.of(2026, 8, 15), owner);
         // addSession이 sessions.add(s) + s.setEvent(this)를 둘 다 해준다(양방향 세팅).
         event.addSession(new Session(event, "오프닝", 1));
         event.addSession(new Session(event, "키노트", 2));
@@ -64,7 +64,7 @@ class EventPersistenceTest {
         User owner = new User("host2@pulse.dev", "hashed-pw");
         em.persist(owner);
 
-        Event event = new Event("EVT-002", "가을 컨퍼런스", "설명입니다", owner);
+        Event event = new Event("EVT-002", "가을 컨퍼런스", "설명입니다", java.time.LocalDate.of(2026, 8, 15), owner);
         event.addSession(new Session(event, "오프닝", 1));
         event.addSession(new Session(event, "키노트", 2));
         Long id = eventRepository.save(event).getId();
