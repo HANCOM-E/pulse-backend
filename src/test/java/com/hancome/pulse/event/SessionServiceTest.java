@@ -47,7 +47,7 @@ class SessionServiceTest {
 
     /** 소유자의 이벤트를 저장하고 공개 코드를 돌려준다. */
     private String persistEvent(User owner, String code) {
-        eventRepository.save(new Event(code, "이벤트", null, owner));
+        eventRepository.save(new Event(code, "이벤트", null, java.time.LocalDate.of(2026, 8, 15), owner));
         return code;
     }
 

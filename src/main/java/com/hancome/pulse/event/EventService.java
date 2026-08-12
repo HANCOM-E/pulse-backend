@@ -53,7 +53,7 @@ public class EventService {
         for (int attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
             String code = randomCode();
             try {
-                Event event = new Event(code, req.title(), req.description(), owner);
+                Event event = new Event(code, req.title(), req.description(), req.eventDate(), owner);
                 eventRepository.saveAndFlush(event); // INSERT 즉시 실행 → 여기서 UNIQUE 위반이 잡힘
                 return EventResponse.from(event);
             } catch (DataIntegrityViolationException e) {
@@ -107,6 +107,9 @@ public class EventService {
         }
         if (req.description() != null) {
             event.setDescription(req.description());
+        }
+        if (req.eventDate() != null) {
+            event.setEventDate(req.eventDate());
         }
         if (req.status() != null) {
             EventStatus from = event.getStatus();

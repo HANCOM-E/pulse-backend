@@ -3,6 +3,7 @@ package com.hancome.pulse.event.dto;
 import com.hancome.pulse.event.EventStatus;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
 
 /**
  * 이벤트 부분 수정 요청. 모든 필드 optional(보낸 것만 반영). {@code code}·{@code ownerId}·{@code createdAt}은 수정 불가.
@@ -16,4 +17,5 @@ public record EventUpdateRequest(
         String title,
 
         @Size(max = 500) String description,
-        EventStatus status) {}
+        EventStatus status,
+        LocalDate eventDate) {}
