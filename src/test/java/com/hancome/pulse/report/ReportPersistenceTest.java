@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.hancome.pulse.auth.User;
 import com.hancome.pulse.event.Event;
+import com.hancome.pulse.feedback.dto.KeywordCount;
+import com.hancome.pulse.feedback.dto.SentimentBreakdown;
 import jakarta.persistence.PersistenceUnitUtil;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -38,7 +40,8 @@ class ReportPersistenceTest {
         Event event = new Event("EVT-RPT", "리포트용 이벤트", "설명", java.time.LocalDate.of(2026, 8, 15), owner);
         em.persist(event);
 
-        Report report = new Report(event, "요약", "감정 분포", List.of("키워드"), false);
+        Report report =
+                new Report(event, "요약", new SentimentBreakdown(1, 2, 3), 2, List.of(new KeywordCount("키워드", 5)), false);
         em.persist(report);
         Long reportId = report.getId();
 
@@ -55,5 +58,30 @@ class ReportPersistenceTest {
         // 값을 실제로 건드리면 그때 초기화되어 로딩된다.
         assertThat(found.getEvent().getTitle()).isEqualTo("리포트용 이벤트");
         assertThat(pu.isLoaded(found, "event")).isTrue();
+    }
+
+    @Test
+    void 집계_JSON_컬럼이_저장되고_역직렬화된다() {
+        // given
+        User owner = new User("host2@pulse.dev", "hashed-pw");
+        em.persist(owner);
+        Event event = new Event("EVT-RPT2", "리포트용 이벤트", "설명", java.time.LocalDate.of(2026, 8, 15), owner);
+        em.persist(event);
+        Report report =
+                new Report(event, "요약", new SentimentBreakdown(5, 3, 2), 1, List.of(new KeywordCount("발표속도", 7)), true);
+        em.persist(report);
+        Long reportId = report.getId();
+        em.flush();
+        em.clear();
+
+        // when
+        Report found = em.find(Report.class, reportId);
+
+        // then — JSON 컬럼이 그대로 역직렬화됨
+        assertThat(found.getSentimentBreakdown().POS()).isEqualTo(5);
+        assertThat(found.getSentimentBreakdown().NEG()).isEqualTo(2);
+        assertThat(found.getUnclassifiedCount()).isEqualTo(1);
+        assertThat(found.getTopKeywords()).extracting(KeywordCount::keyword).containsExactly("발표속도");
+        assertThat(found.getTopKeywords().get(0).count()).isEqualTo(7);
     }
 }
