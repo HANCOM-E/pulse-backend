@@ -49,14 +49,16 @@ public class SessionController {
     @PatchMapping("/{sessionId}")
     public SessionResponse update(
             @AuthenticationPrincipal Long userId,
+            @PathVariable String eventCode,
             @PathVariable Long sessionId,
             @Valid @RequestBody SessionUpdateRequest req) {
-        return sessionService.update(req, userId, sessionId);
+        return sessionService.update(req, userId, eventCode, sessionId);
     }
 
     @DeleteMapping("/{sessionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@AuthenticationPrincipal Long userId, @PathVariable Long sessionId) {
-        sessionService.delete(userId, sessionId);
+    public void delete(
+            @AuthenticationPrincipal Long userId, @PathVariable String eventCode, @PathVariable Long sessionId) {
+        sessionService.delete(userId, eventCode, sessionId);
     }
 }

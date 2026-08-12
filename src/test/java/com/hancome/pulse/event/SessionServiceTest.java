@@ -100,7 +100,8 @@ class SessionServiceTest {
         em.clear();
 
         // when
-        sessionService.update(new SessionUpdateRequest("새제목", null, SessionStatus.ACTIVE), owner.getId(), sessionId);
+        sessionService.update(
+                new SessionUpdateRequest("새제목", null, SessionStatus.ACTIVE), owner.getId(), code, sessionId);
         em.flush();
         em.clear();
 
@@ -117,8 +118,8 @@ class SessionServiceTest {
         User owner = persistOwner("a@pulse.dev");
 
         // when/then
-        assertThatThrownBy(
-                        () -> sessionService.update(new SessionUpdateRequest("x", null, null), owner.getId(), 999999L))
+        assertThatThrownBy(() -> sessionService.update(
+                        new SessionUpdateRequest("x", null, null), owner.getId(), "NOPE", 999999L))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.SESSION_NOT_FOUND);
@@ -136,7 +137,7 @@ class SessionServiceTest {
         em.clear();
 
         // when
-        sessionService.delete(owner.getId(), sessionId);
+        sessionService.delete(owner.getId(), code, sessionId);
         em.flush();
         em.clear();
 
@@ -151,12 +152,12 @@ class SessionServiceTest {
         User owner = persistOwner("a@pulse.dev");
         String code = persistEvent(owner, "EVT-A");
         Long sessionId = createSession(owner.getId(), code, "세션", 1);
-        sessionService.delete(owner.getId(), sessionId);
+        sessionService.delete(owner.getId(), code, sessionId);
         em.flush();
         em.clear();
 
         // when/then
-        assertThatThrownBy(() -> sessionService.delete(owner.getId(), sessionId))
+        assertThatThrownBy(() -> sessionService.delete(owner.getId(), code, sessionId))
                 .isInstanceOf(ApiException.class)
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.SESSION_ALREADY_DELETED);
@@ -191,12 +192,63 @@ class SessionServiceTest {
         Long a = createSession(user1.getId(), code, "1", 1);
 
         // when/then
-        assertThatThrownBy(() -> sessionService.update(new SessionUpdateRequest("3", null, null), user2.getId(), a))
+        assertThatThrownBy(
+                        () -> sessionService.update(new SessionUpdateRequest("3", null, null), user2.getId(), code, a))
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.NOT_OWNER);
-        assertThatThrownBy(() -> sessionService.delete(user2.getId(), a))
+        assertThatThrownBy(() -> sessionService.delete(user2.getId(), code, a))
                 .extracting(e -> ((ApiException) e).errorCode())
                 .isEqualTo(ErrorCode.NOT_OWNER);
+    }
+
+    @Test
+    void 다른_이벤트코드로_세션수정하면_SESSION_NOT_FOUND() {
+        // given
+        User owner = persistOwner("a@pulse.dev");
+        String codeA = persistEvent(owner, "EVT-A");
+        String codeB = persistEvent(owner, "EVT-B");
+        Long sessionId = createSession(owner.getId(), codeA, "세션", 1);
+        em.flush();
+        em.clear();
+
+        // when/then
+        assertThatThrownBy(() -> sessionService.update(
+                        new SessionUpdateRequest("x", null, null), owner.getId(), codeB, sessionId))
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.SESSION_NOT_FOUND);
+    }
+
+    @Test
+    void status를_DELETED로_수정하면_VALIDATION_ERROR() {
+        // given
+        User owner = persistOwner("a@pulse.dev");
+        String code = persistEvent(owner, "EVT-A");
+        Long sessionId = createSession(owner.getId(), code, "세션", 1);
+        em.flush();
+        em.clear();
+
+        // when/then
+        assertThatThrownBy(() -> sessionService.update(
+                        new SessionUpdateRequest(null, null, SessionStatus.DELETED), owner.getId(), code, sessionId))
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void 이미_삭제된_세션을_수정하면_SESSION_ALREADY_DELETED() {
+        // given
+        User owner = persistOwner("a@pulse.dev");
+        String code = persistEvent(owner, "EVT-A");
+        Long sessionId = createSession(owner.getId(), code, "세션", 1);
+        sessionService.delete(owner.getId(), code, sessionId);
+        em.flush();
+        em.clear();
+
+        // when/then
+        assertThatThrownBy(() -> sessionService.update(
+                        new SessionUpdateRequest("x", null, null), owner.getId(), code, sessionId))
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.SESSION_ALREADY_DELETED);
     }
 
     @Test

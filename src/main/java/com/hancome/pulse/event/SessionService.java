@@ -52,17 +52,21 @@ public class SessionService {
     }
 
     /**
-     * 세션을 부분 수정한다(제목·순서·상태). 소유자만 가능. {@code status}는 ACTIVE↔CLOSED 전환(마감/재개).
+     * 세션을 부분 수정한다(제목·순서·상태). 소유자만 가능. {@code status}는 ACTIVE↔CLOSED 전환(마감/재개)만 허용하며,
+     * {@code DELETED}로의 전이는 삭제 엔드포인트 전용이라 거부한다. 이미 삭제된 세션은 수정할 수 없다.
      *
      * @param req 수정할 필드(보낸 것만 반영)
      * @param ownerId 인증된 주최자 PK
+     * @param eventCode 세션이 속한 이벤트의 공개 코드
      * @param sessionId 대상 세션 PK
      * @return 수정된 전체 뷰
-     * @throws ApiException 세션 없으면 {@code SESSION_NOT_FOUND}, 소유자 아니면 {@code NOT_OWNER}
+     * @throws ApiException 세션 없으면 {@code SESSION_NOT_FOUND}, 소유자 아니면 {@code NOT_OWNER}, 이미 삭제면 {@code
+     *     SESSION_ALREADY_DELETED}, status가 {@code DELETED}면 {@code VALIDATION_ERROR}
      */
     @Transactional
-    public SessionResponse update(@NonNull SessionUpdateRequest req, Long ownerId, Long sessionId) {
-        Session session = loadOwnedSession(ownerId, sessionId);
+    public SessionResponse update(@NonNull SessionUpdateRequest req, Long ownerId, String eventCode, Long sessionId) {
+        Session session = loadOwnedSession(ownerId, eventCode, sessionId);
+        if (session.getStatus() == SessionStatus.DELETED) throw new ApiException(ErrorCode.SESSION_ALREADY_DELETED);
 
         if (req.order() != null) {
             session.setOrder(req.order());
@@ -71,6 +75,7 @@ public class SessionService {
             session.setTitle(req.title());
         }
         if (req.status() != null) {
+            if (req.status() == SessionStatus.DELETED) throw new ApiException(ErrorCode.VALIDATION_ERROR);
             session.setStatus(req.status());
         }
         sessionRepository.save(session);
@@ -86,13 +91,14 @@ public class SessionService {
      * 세션을 소프트 삭제한다({@code status = DELETED}). 소유자만 가능.
      *
      * @param ownerId 인증된 주최자 PK
+     * @param eventCode 세션이 속한 이벤트의 공개 코드
      * @param sessionId 대상 세션 PK
      * @throws ApiException 세션 없으면 {@code SESSION_NOT_FOUND}, 소유자 아니면 {@code NOT_OWNER}, 이미 삭제면 {@code
      *     SESSION_ALREADY_DELETED}
      */
     @Transactional
-    public void delete(Long ownerId, Long sessionId) {
-        Session session = loadOwnedSession(ownerId, sessionId);
+    public void delete(Long ownerId, String eventCode, Long sessionId) {
+        Session session = loadOwnedSession(ownerId, eventCode, sessionId);
         if (session.getStatus() == SessionStatus.DELETED) throw new ApiException(ErrorCode.SESSION_ALREADY_DELETED);
         session.setStatus(SessionStatus.DELETED);
         sessionRepository.save(session);
@@ -115,16 +121,19 @@ public class SessionService {
     }
 
     /**
-     * 세션을 로드하고 부모 이벤트의 소유자를 검증한다(수정·삭제 공통 진입점).
+     * 세션을 로드하고 (1) URL의 이벤트 코드에 속한 세션인지, (2) 부모 이벤트의 소유자인지 검증한다(수정·삭제 공통 진입점). 다른 이벤트의
+     * 코드가 박힌 URL로 남의 세션에 접근하는 것을 막기 위해 소속 검증을 소유자 검증보다 먼저 한다.
      *
      * @param ownerId 요청자 PK
+     * @param eventCode 세션이 속해야 하는 이벤트의 공개 코드
      * @param sessionId 대상 세션 PK
      * @return 소유가 확인된 세션 엔티티
-     * @throws ApiException 세션 없으면 {@code SESSION_NOT_FOUND}, 소유자 아니면 {@code NOT_OWNER}
+     * @throws ApiException 세션이 없거나 그 이벤트 소속이 아니면 {@code SESSION_NOT_FOUND}, 소유자 아니면 {@code NOT_OWNER}
      */
-    public Session loadOwnedSession(Long ownerId, Long sessionId) {
+    public Session loadOwnedSession(Long ownerId, String eventCode, Long sessionId) {
         Session session =
                 sessionRepository.findById(sessionId).orElseThrow(() -> new ApiException(ErrorCode.SESSION_NOT_FOUND));
+        if (!session.getEvent().getCode().equals(eventCode)) throw new ApiException(ErrorCode.SESSION_NOT_FOUND);
         if (!session.getEvent().getOwner().getId().equals(ownerId)) throw new ApiException(ErrorCode.NOT_OWNER);
         return session;
     }
