@@ -7,10 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-/**
- * 소감 저장·집계·레이트리밋 조회.
- *
- */
+/** 소감 저장·집계·레이트리밋·모더레이션 조회. */
 public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
     @Query("""
         select f.sentiment, count(f)
@@ -56,4 +53,22 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
             @Param("sessionId") Long sessionId,
             @Param("status") FeedbackStatus status,
             Pageable pageable);
+
+    @Query("""
+        select f
+        from Feedback f
+        where f.session.event.owner.id = :ownerId
+            and (:eventCode is null or f.session.event.code = :eventCode)
+            and (:sessionId is null or f.session.id = :sessionId)
+            and (:toxic is null or f.toxic = :toxic)
+            and f.status <> com.hancome.pulse.feedback.FeedbackStatus.DELETED
+            and (:includeHidden = true or f.status = com.hancome.pulse.feedback.FeedbackStatus.VISIBLE)
+        order by f.createdAt desc
+""")
+    List<Feedback> adminList(
+            @Param("ownerId") Long ownerId,
+            @Param("eventCode") String eventCode,
+            @Param("sessionId") Long sessionId,
+            @Param("toxic") Boolean toxic,
+            @Param("includeHidden") boolean includeHidden);
 }
