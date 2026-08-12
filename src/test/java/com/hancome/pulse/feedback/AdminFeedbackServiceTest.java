@@ -82,8 +82,10 @@ class AdminFeedbackServiceTest {
 
         // when
         AdminFeedbackView view = adminFeedbackService.hide(owner.getId(), fid);
+        em.flush();
+        em.clear();
 
-        // then
+        // then — 반환 DTO + DB 반영 둘 다 확인
         assertThat(view.status()).isEqualTo(FeedbackStatus.HIDDEN);
         assertThat(feedbackRepository.findById(fid).orElseThrow().getStatus()).isEqualTo(FeedbackStatus.HIDDEN);
     }
@@ -97,8 +99,13 @@ class AdminFeedbackServiceTest {
         em.flush();
         em.clear();
 
-        // when/then
-        assertThat(adminFeedbackService.show(owner.getId(), fid).status()).isEqualTo(FeedbackStatus.VISIBLE);
+        // when
+        adminFeedbackService.show(owner.getId(), fid);
+        em.flush();
+        em.clear();
+
+        // then — DB 반영 확인
+        assertThat(feedbackRepository.findById(fid).orElseThrow().getStatus()).isEqualTo(FeedbackStatus.VISIBLE);
     }
 
     @Test
