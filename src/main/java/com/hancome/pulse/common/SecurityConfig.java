@@ -47,8 +47,10 @@ public class SecurityConfig {
 
         http.csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
-                        // 로그인·회원가입은 아직 토큰이 없는 진입점이라 CSRF 예외. 나머지 상태변경은 토큰 필요.
-                        .ignoringRequestMatchers("/api/v1/auth/login", "/api/v1/auth/signup"))
+                        // 로그인·회원가입은 아직 토큰이 없는 진입점이라 CSRF 예외. 소감 제출은 비인증 공개(보호할 세션 없음)라 예외.
+                        // 나머지 상태변경은 토큰 필요.
+                        .ignoringRequestMatchers(
+                                "/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/events/*/feedbacks"))
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
@@ -61,6 +63,10 @@ public class SecurityConfig {
                         .permitAll() // 이벤트 단건 공개 조회. 목록(GET /events)·쓰기는 인증 유지
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions")
                         .permitAll() // 세션 목록 공개 조회. 세션 쓰기는 인증 유지
+                        .requestMatchers(HttpMethod.POST, "/api/v1/events/*/feedbacks")
+                        .permitAll() // 소감 제출 공개(게스트)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/feedbacks")
+                        .permitAll() // 집계 스냅샷 공개 조회
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.

@@ -58,6 +58,10 @@ public class Feedback {
         this.keywords = keywords;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     public Session getSession() {
         return session;
     }
