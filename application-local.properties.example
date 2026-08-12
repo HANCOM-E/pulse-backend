@@ -1,6 +1,9 @@
-# 로컬 개발용 DB 설정 템플릿.
-# 사용법: 이 파일을 같은 위치에 application-local.properties 로 복사하면 끝(값 수정 불필요).
+# 로컬 개발용 설정 템플릿.
+# 사용법: 이 파일을 같은 위치에 application-local.properties 로 복사하면 로컬(H2)로 바로 실행됩니다.
+#   macOS/Linux/Git Bash : cp application-local.properties.example application-local.properties
+#   Windows PowerShell    : Copy-Item application-local.properties.example application-local.properties
 #   (application-local.properties 는 .gitignore 되어 커밋되지 않음)
+# 팀과 동일한 시크릿/설정이 필요하면 팀 내부에 공유된 프로퍼티 파일의 값을 사용하세요.
 #
 # 로컬은 인메모리 H2를 쓴다: 매 실행마다 스키마를 새로 굽고 종료 시 폐기 → 공용 Neon을 건드리지 않음.
 # 배포(Render)는 이 파일이 없어 환경변수 SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD 로 Neon에 붙는다.
