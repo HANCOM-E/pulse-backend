@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .permitAll() // 로그인·회원가입·로그아웃은 공개(/auth/me는 인증 필요 → anyRequest로 빠짐)
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*")
                         .permitAll() // 이벤트 단건 공개 조회. 목록(GET /events)·쓰기는 인증 유지
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions")
+                        .permitAll() // 세션 목록 공개 조회. 세션 쓰기는 인증 유지
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
