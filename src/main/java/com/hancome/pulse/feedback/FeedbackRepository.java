@@ -18,6 +18,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
         where f.session.event.code = :eventCode
             and ( :sessionId is null or f.session.id = :sessionId)
             and f.status = :status
+            and f.session.status <> com.hancome.pulse.event.SessionStatus.DELETED
         group by f.sentiment
 """)
     List<Object[]> countBySentiment(
@@ -31,6 +32,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
         where f.session.event.code = :eventCode
             and ( :sessionId is null or f.session.id = :sessionId)
             and f.status = :status
+            and f.session.status <> com.hancome.pulse.event.SessionStatus.DELETED
         group by k
         order by count(k) desc
 """)
@@ -46,6 +48,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
         where f.session.event.code = :eventCode
             and (:sessionId is null or f.session.id = :sessionId)
             and f.status = :status
+            and f.session.status <> com.hancome.pulse.event.SessionStatus.DELETED
         order by f.createdAt desc
 """)
     List<Feedback> recentFeedbacks(

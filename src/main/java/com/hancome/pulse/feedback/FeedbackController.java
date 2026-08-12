@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/events/{eventCode}/feedbacks")
 public class FeedbackController {
+    private static final int MAX_CLIENT_ID_LENGTH = 64;
+
     private final FeedbackService feedbackService;
 
     public FeedbackController(FeedbackService feedbackService) {
@@ -38,7 +40,12 @@ public class FeedbackController {
             @Valid @RequestBody FeedbackSubmitRequest req,
             @RequestHeader(value = "X-Client-Id", required = false) String clientId,
             HttpServletRequest servletRequest) {
-        String rateKey = StringUtils.hasText(clientId) ? clientId : servletRequest.getRemoteAddr();
+        // IP를 항상 키에 포함해, X-Client-Id를 위조·변경해도 IP 단위 상한은 유지되게 한다.
+        // 헤더는 임의 문자열이라 길이를 캡해 무한한 map 키 생성을 막는다.
+        String ip = servletRequest.getRemoteAddr();
+        String rateKey = StringUtils.hasText(clientId)
+                ? ip + ":" + clientId.substring(0, Math.min(clientId.length(), MAX_CLIENT_ID_LENGTH))
+                : ip;
         return ResponseEntity.status(HttpStatus.CREATED).body(feedbackService.submit(eventCode, req, rateKey));
     }
 

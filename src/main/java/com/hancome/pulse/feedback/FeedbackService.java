@@ -38,6 +38,7 @@ public class FeedbackService {
     private final Map<String, Deque<Instant>> rateLog = new ConcurrentHashMap<>();
     private static final int LIMIT = 3;
     private static final Duration WINDOW = Duration.ofMinutes(1);
+    private static final int MAX_KEYS = 10_000; // rateLog 청소 임계
 
     private Session loadSubmittableSession(String eventCode, Long sessionId) {
         Event event =
@@ -58,10 +59,14 @@ public class FeedbackService {
     }
 
     private void checkRateLimit(Long sessionId, String clientId) {
+        // 공개 엔드포인트라 rateLog가 무한히 커지지 않게, 키가 임계를 넘으면 만료된 항목을 일괄 청소한다.
+        // ponytail: 크기 상한 휴리스틱. 정밀한 시간 만료가 필요하면 Caffeine(expireAfterWrite)로 교체.
+        if (rateLog.size() > MAX_KEYS) sweepExpired();
+
         String key = sessionId + ":" + clientId;
         Deque<Instant> log = rateLog.computeIfAbsent(key, k -> new ArrayDeque<>());
         synchronized (log) {
-            Instant cutoff = Instant.now().minus(WINDOW); // 60초 전 경계선 게산
+            Instant cutoff = Instant.now().minus(WINDOW); // 60초 전 경계선 계산
 
             while (!log.isEmpty() && log.peekFirst().isBefore(cutoff)) {
                 log.pollFirst();
@@ -71,6 +76,19 @@ public class FeedbackService {
 
             log.addLast(Instant.now());
         }
+    }
+
+    /** 만료(윈도우 밖)로 비게 된 rateLog 항목을 제거해 맵이 무한히 커지는 것을 막는다. */
+    private void sweepExpired() {
+        Instant cutoff = Instant.now().minus(WINDOW);
+        rateLog.forEach((k, log) -> {
+            synchronized (log) {
+                while (!log.isEmpty() && log.peekFirst().isBefore(cutoff)) {
+                    log.pollFirst();
+                }
+                if (log.isEmpty()) rateLog.remove(k, log); // 값 일치 시에만 제거(원자적, computeIfAbsent 레이스 방어)
+            }
+        });
     }
     /**
      * 소감을 제출한다. 처리 순서: (1) 게이트 → (2) 레이트리밋 → (3) 저장.
@@ -102,6 +120,11 @@ public class FeedbackService {
      */
     @Transactional(readOnly = true)
     public FeedbackSnapshot getSnapshot(String eventCode, Long sessionId) {
+        // 공개 조회도 삭제/미존재 이벤트는 숨긴다(getPublic과 동일). 삭제된 세션의 소감은 쿼리에서 제외한다.
+        Event event =
+                eventRepository.findByCode(eventCode).orElseThrow(() -> new ApiException(ErrorCode.EVENT_NOT_FOUND));
+        if (event.getStatus() == EventStatus.DELETED) throw new ApiException(ErrorCode.EVENT_NOT_FOUND);
+
         List<Object[]> rowList = feedbackRepository.countBySentiment(eventCode, sessionId, FeedbackStatus.VISIBLE);
         int pos = 0, neu = 0, neg = 0, unknown = 0;
         for (Object[] row : rowList) {
