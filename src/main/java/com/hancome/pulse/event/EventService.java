@@ -120,6 +120,12 @@ public class EventService {
                     || (from == EventStatus.LIVE && to == EventStatus.ENDED);
             if (!valid) throw new ApiException(ErrorCode.INVALID_EVENT_STATE_TRANSITION);
             event.setStatus(to);
+            if (to == EventStatus.ENDED) {
+                // 행사 종료 시 아직 열려 있는(ACTIVE) 세션을 피드백 마감(CLOSED)으로 정합. DELETED는 그대로 둔다.
+                event.getSessions().stream()
+                        .filter(s -> s.getStatus() == SessionStatus.ACTIVE)
+                        .forEach(s -> s.setStatus(SessionStatus.CLOSED));
+            }
         }
         return EventResponse.from(event);
     }
