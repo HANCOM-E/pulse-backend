@@ -1,10 +1,14 @@
 package com.hancome.pulse.report;
 
 import com.hancome.pulse.event.Event;
+import com.hancome.pulse.feedback.dto.KeywordCount;
+import com.hancome.pulse.feedback.dto.SentimentBreakdown;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "reports")
@@ -22,14 +26,19 @@ public class Report {
     @Column(nullable = false)
     private ReportStatus status = ReportStatus.GENERATING;
 
+    // 생성 완료 전(GENERATING)엔 아래 집계·요약 필드가 비어 있으므로 모두 nullable.
     @Column(columnDefinition = "text")
     private String summaryText;
 
-    @Column(columnDefinition = "text")
-    private String sentimentBreakdown;
+    // 집계 결과는 ERD 방침대로 JSON 컬럼으로 저장(조회 전용이라 정규화 불필요). 계약 스키마(SentimentBreakdown, KeywordCount[])와 정합.
+    // columnDefinition은 생략 — @JdbcTypeCode(JSON)이 dialect별 타입(Postgres jsonb, H2 json)을 알아서 생성해 이식성 유지.
+    @JdbcTypeCode(SqlTypes.JSON)
+    private SentimentBreakdown sentimentBreakdown;
 
-    @ElementCollection
-    private List<String> topKeywords;
+    private Integer unclassifiedCount;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<KeywordCount> topKeywords;
 
     private boolean isPublic;
 
@@ -40,10 +49,16 @@ public class Report {
     protected Report() {}
 
     public Report(
-            Event event, String summaryText, String sentimentBreakdown, List<String> topKeywords, boolean isPublic) {
+            Event event,
+            String summaryText,
+            SentimentBreakdown sentimentBreakdown,
+            Integer unclassifiedCount,
+            List<KeywordCount> topKeywords,
+            boolean isPublic) {
         this.event = event;
         this.summaryText = summaryText;
         this.sentimentBreakdown = sentimentBreakdown;
+        this.unclassifiedCount = unclassifiedCount;
         this.topKeywords = topKeywords;
         this.isPublic = isPublic;
     }
@@ -76,19 +91,27 @@ public class Report {
         this.summaryText = summaryText;
     }
 
-    public String getSentimentBreakdown() {
+    public SentimentBreakdown getSentimentBreakdown() {
         return sentimentBreakdown;
     }
 
-    public void setSentimentBreakdown(String sentimentBreakdown) {
+    public void setSentimentBreakdown(SentimentBreakdown sentimentBreakdown) {
         this.sentimentBreakdown = sentimentBreakdown;
     }
 
-    public List<String> getTopKeywords() {
+    public Integer getUnclassifiedCount() {
+        return unclassifiedCount;
+    }
+
+    public void setUnclassifiedCount(Integer unclassifiedCount) {
+        this.unclassifiedCount = unclassifiedCount;
+    }
+
+    public List<KeywordCount> getTopKeywords() {
         return topKeywords;
     }
 
-    public void setTopKeywords(List<String> topKeywords) {
+    public void setTopKeywords(List<KeywordCount> topKeywords) {
         this.topKeywords = topKeywords;
     }
 
