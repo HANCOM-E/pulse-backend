@@ -6,7 +6,6 @@ import com.hancome.pulse.feedback.dto.SentimentBreakdown;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.List;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -42,8 +41,7 @@ public class Report {
 
     private boolean isPublic;
 
-    @CreationTimestamp
-    @Column(updatable = false)
+    // 생성 완료(GENERATED) 시각. 워커가 완료 시점에 세팅한다(GENERATING/FAILED엔 null).
     private Instant generatedAt;
 
     protected Report() {}
@@ -125,5 +123,9 @@ public class Report {
 
     public Instant getGeneratedAt() {
         return generatedAt;
+    }
+
+    public void setGeneratedAt(Instant generatedAt) {
+        this.generatedAt = generatedAt;
     }
 }

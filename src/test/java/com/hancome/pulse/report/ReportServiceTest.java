@@ -49,7 +49,7 @@ class ReportServiceTest {
     private ApplicationEventPublisher eventPublisher;
 
     private ReportService reportService;
-    private ReportGenerationWorker worker;
+    private ReportFiller filler;
 
     ReportServiceTest(
             UserRepository userRepository,
@@ -70,7 +70,7 @@ class ReportServiceTest {
     void setUp() {
         reportService = new ReportService(eventRepository, reportRepository, eventPublisher);
         FeedbackService feedbackService = new FeedbackService(eventRepository, sessionRepository, feedbackRepository);
-        worker = new ReportGenerationWorker(reportRepository, feedbackService, new ReportSummaryGenerator());
+        filler = new ReportFiller(reportRepository, feedbackService, new ReportSummaryGenerator());
     }
 
     private User persistOwner(String email) {
@@ -130,8 +130,10 @@ class ReportServiceTest {
 
         // when
         ReportResponse res = reportService.generate(owner.getId(), "EVT-A");
+        em.flush();
+        em.clear();
 
-        // then
+        // then — DB 반영 확인(1차 캐시 아님)
         assertThat(res.status()).isEqualTo(ReportStatus.GENERATING);
         assertThat(reportRepository.findByEvent_Code("EVT-A")).isPresent();
     }
@@ -167,8 +169,8 @@ class ReportServiceTest {
         em.flush();
         em.clear();
 
-        // when — 비동기 워커를 동기로 직접 호출
-        worker.fill(reportId, "EVT-A");
+        // when — 비동기 채우기를 동기로 직접 호출
+        filler.fill(reportId, "EVT-A");
         em.flush();
         em.clear();
 
@@ -176,6 +178,7 @@ class ReportServiceTest {
         Report found = reportRepository.findById(reportId).orElseThrow();
         assertThat(found.getStatus()).isEqualTo(ReportStatus.GENERATED);
         assertThat(found.getSummaryText()).isEqualTo("(요약 생성 예정)");
+        assertThat(found.getGeneratedAt()).isNotNull(); // 완료 시각 기록
         assertThat(found.getSentimentBreakdown().POS()).isEqualTo(2);
         assertThat(found.getSentimentBreakdown().NEG()).isEqualTo(1);
         assertThat(found.getTopKeywords()).extracting(kc -> kc.keyword()).containsExactly("발표속도");
@@ -201,10 +204,11 @@ class ReportServiceTest {
 
     @Test
     void 게스트는_공개된_경우만_PublicReport를_받는다() {
-        // given — 공개 토글된 리포트
+        // given — GENERATED 후 공개 토글된 리포트
         User owner = persistOwner("a@pulse.dev");
         persistEvent(owner, "EVT-A", EventStatus.ENDED);
-        reportService.generate(owner.getId(), "EVT-A");
+        Long reportId = reportService.generate(owner.getId(), "EVT-A").id();
+        filler.fill(reportId, "EVT-A"); // 완성해야 공개 토글 가능
         reportService.toggle(owner.getId(), "EVT-A", true);
         em.flush();
         em.clear();
@@ -214,6 +218,21 @@ class ReportServiceTest {
 
         // then
         assertThat(res).isInstanceOf(PublicReport.class);
+    }
+
+    @Test
+    void 완성_전_리포트는_공개토글이_거부된다() {
+        // given — GENERATING 상태(채우기 전)
+        User owner = persistOwner("a@pulse.dev");
+        persistEvent(owner, "EVT-A", EventStatus.ENDED);
+        reportService.generate(owner.getId(), "EVT-A");
+        em.flush();
+        em.clear();
+
+        // when/then
+        assertThatThrownBy(() -> reportService.toggle(owner.getId(), "EVT-A", true))
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.REPORT_NOT_FOUND);
     }
 
     @Test

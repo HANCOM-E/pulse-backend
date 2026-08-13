@@ -101,6 +101,8 @@ public class ReportService {
                 .findByEvent_Code(eventCode)
                 .orElseThrow(() -> new ApiException(ErrorCode.REPORT_NOT_FOUND));
         if (!report.getEvent().getOwner().getId().equals(ownerId)) throw new ApiException(ErrorCode.NOT_OWNER);
+        // 완성 전(GENERATING/FAILED) 리포트를 공개하면 게스트가 null투성이 PublicReport를 받으므로 막는다.
+        if (report.getStatus() != ReportStatus.GENERATED) throw new ApiException(ErrorCode.REPORT_NOT_FOUND);
         report.setPublic(isPublic);
         return ReportResponse.from(report);
     }
