@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .permitAll() // 소감 제출 공개(게스트)
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/feedbacks")
                         .permitAll() // 집계 스냅샷 공개 조회
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/report")
+                        .permitAll() // 리포트 공개 조회(auth 인식: 소유자 전체 / 게스트 공개분)
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
