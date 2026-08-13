@@ -2,6 +2,8 @@ package com.hancome.pulse.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.hancome.pulse.auth.User;
 import com.hancome.pulse.auth.UserRepository;
@@ -28,7 +30,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestConstructor;
+import org.springframework.test.web.client.ExpectedCount;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 
 /**
  * ReportService·ReportGenerationWorker 통합 테스트. 생성 조건·auth 다형 조회·토글·비동기 채우기(워커는 동기로 직접 호출)를 실제
@@ -70,7 +76,14 @@ class ReportServiceTest {
     void setUp() {
         reportService = new ReportService(eventRepository, reportRepository, eventPublisher);
         FeedbackService feedbackService = new FeedbackService(eventRepository, sessionRepository, feedbackRepository);
-        filler = new ReportFiller(reportRepository, feedbackService, new ReportSummaryGenerator());
+        // LLM 호출을 캔값으로 스텁 — 실네트워크 없이 파이프라인(집계·요약 저장)만 검증. 소감이 있는 테스트만 호출을 탄다.
+        RestClient.Builder builder = RestClient.builder().baseUrl(ReportSummaryGenerator.OPENROUTER_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(ExpectedCount.manyTimes(), requestTo(ReportSummaryGenerator.OPENROUTER_URL + "/chat/completions"))
+                .andRespond(
+                        withSuccess("{\"choices\":[{\"message\":{\"content\":\"요약\"}}]}", MediaType.APPLICATION_JSON));
+        ReportSummaryGenerator summaryGenerator = new ReportSummaryGenerator(builder.build(), "test-model");
+        filler = new ReportFiller(reportRepository, feedbackService, summaryGenerator);
     }
 
     private User persistOwner(String email) {
@@ -177,7 +190,7 @@ class ReportServiceTest {
         // then
         Report found = reportRepository.findById(reportId).orElseThrow();
         assertThat(found.getStatus()).isEqualTo(ReportStatus.GENERATED);
-        assertThat(found.getSummaryText()).isEqualTo("(요약 생성 예정)");
+        assertThat(found.getSummaryText()).isEqualTo("요약");
         assertThat(found.getGeneratedAt()).isNotNull(); // 완료 시각 기록
         assertThat(found.getSentimentBreakdown().POS()).isEqualTo(2);
         assertThat(found.getSentimentBreakdown().NEG()).isEqualTo(1);
