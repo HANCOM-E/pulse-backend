@@ -2,6 +2,8 @@ package com.hancome.pulse.report;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -26,6 +28,8 @@ class ReportSummaryGeneratorTest {
     @Test
     void 정상_응답이면_요약_반환() {
         server.expect(requestTo(ReportSummaryGenerator.OPENROUTER_URL + "/chat/completions"))
+                .andExpect(content().string(containsString("좋았어요"))) // 소감 원문이 프롬프트에 실렸는지
+                .andExpect(content().string(containsString("test-model"))) // 설정된 모델로 요청했는지
                 .andRespond(withSuccess(
                         "{\"choices\":[{\"message\":{\"content\":\"전반적으로 만족스러웠습니다.\"}}]}", MediaType.APPLICATION_JSON));
 
@@ -43,6 +47,7 @@ class ReportSummaryGeneratorTest {
 
         assertThatThrownBy(() -> generator.summarize(snapshotWith(view("좋았어요"))))
                 .isInstanceOf(IllegalStateException.class);
+        server.verify(); // 빈 응답이어도 호출은 실제로 나갔는지 확인
     }
 
     @Test

@@ -20,6 +20,9 @@ spring.jpa.hibernate.ddl-auto=create-drop
 jwt.secret=local-dev-only-jwt-secret-change-me-min-32-bytes
 
 # open_router
-openrouter.api-key={}
+# API 키(필수). 이 로컬 파일이 base(application.properties)를 override하므로, 여기에 리터럴을 두면
+# 그 값으로 부팅돼 첫 LLM 호출에서 실패한다. env OPENROUTER_API_KEY로 해석 — 미설정 시 부팅 실패(fail-fast).
+# 키를 파일에 직접 넣으려면 이 줄을 실제 키로 교체.
+openrouter.api-key=${OPENROUTER_API_KEY}
 openrouter.model=google/gemini-2.5-flash
 openrouter.read-timeout=30s
