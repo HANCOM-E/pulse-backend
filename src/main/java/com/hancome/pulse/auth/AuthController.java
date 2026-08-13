@@ -2,6 +2,7 @@ package com.hancome.pulse.auth;
 
 import com.hancome.pulse.auth.dto.*;
 import com.hancome.pulse.common.AuthCookieProperties;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -32,6 +33,7 @@ public class AuthController {
                 .build();
     }
 
+    @Operation(security = {}) // 공개 진입점 — 전역 cookieAuth 요구 해제
     @PostMapping("/signup")
     public ResponseEntity<AuthUser> signup(@Valid @RequestBody SignupRequest req) {
         AuthResult authResult = authService.signUp(req);
@@ -42,6 +44,7 @@ public class AuthController {
                 .body(authResult.user());
     }
 
+    @Operation(security = {}) // 공개 진입점
     @PostMapping("/login")
     public ResponseEntity<AuthUser> login(@Valid @RequestBody LoginRequest req) {
         AuthResult authResult = authService.login(req);
@@ -52,6 +55,7 @@ public class AuthController {
                 .body(authResult.user());
     }
 
+    @Operation(security = {}) // 로그아웃은 토큰 없이도 호출 가능(쿠키 만료)
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
         ResponseCookie cookie = accessTokenCookie("", 0);
