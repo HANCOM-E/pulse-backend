@@ -34,6 +34,11 @@ public class ReportFiller {
      * 집계·요약을 채워 {@code GENERATED}로 전이한다(완료 시각 기록). 집계는 {@code FeedbackService.getSnapshot}(이벤트 전체)을
      * 재사용한다. 예외가 나면 이 트랜잭션은 롤백되고 리포트는 {@code GENERATING}으로 남는다(호출자가 {@link #markFailed}로 마무리).
      *
+     * <p>ponytail: 이 트랜잭션이 {@code summarize}(OpenRouter 블로킹 호출, read-timeout까지)를 감싸고 있어 그동안 Hikari 커넥션
+     * 하나를 붙잡는다. {@code @Async} 실행기가 기본 8스레드로 유계라 동시 점유도 8개로 묶이지만, 리포트 생성이 몰리면 풀(기본 10)이 마를 수 있다.
+     * 저트래픽 MVP에선 무해 — 리포트 부하가 커지면 (a)읽기 트랜잭션에서 snapshot 확보 → (b)트랜잭션 밖 summarize → (c)짧은 쓰기 트랜잭션
+     * 저장, 3단계로 쪼갠다.
+     *
      * @param reportId 채울 리포트 PK
      * @param eventCode 집계 대상 이벤트 코드
      */
