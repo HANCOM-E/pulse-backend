@@ -29,15 +29,16 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest req) {
-        // Render 헬스체크가 주기적으로 때리는 경로는 로그에서 뺀다(SQL 도배 걷어낸 자리에 헬스체크 도배 방지).
-        return "/api/v1/health".equals(req.getRequestURI());
+        // 헬스체크(Render 주기 호출)와 CORS 프리플라이트(OPTIONS)는 로그에서 뺀다 — 앱 트래픽이 아니라 잡음이다.
+        return "/api/v1/health".equals(req.getRequestURI()) || "OPTIONS".equalsIgnoreCase(req.getMethod());
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         long startNanos = System.nanoTime();
-        log.info("[REQ] {} {}", req.getMethod(), req.getRequestURI());
+        // [REQ]는 "응답 없이 죽은 요청"을 볼 때만 필요해 DEBUG로 둔다. 평상시 INFO엔 status·소요시간이 다 담긴 [RES] 한 줄만.
+        log.debug("[REQ] {} {}", req.getMethod(), req.getRequestURI());
         try {
             chain.doFilter(req, res);
         } finally {

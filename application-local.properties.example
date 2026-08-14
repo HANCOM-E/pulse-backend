@@ -9,9 +9,9 @@
 # 배포(Render)는 이 파일이 없어 환경변수 SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD 로 Neon에 붙는다.
 # MODE=PostgreSQL 로 H2가 Postgres를 최대한 흉내내지만 100%는 아니므로, 배포 전엔 Neon으로도 한 번 확인 권장.
 
+# username/password는 H2 기본값(sa/빈값)이라 생략 가능하지만, URL은 남긴다 — MODE=PostgreSQL이 빠지면
+# 로컬 H2가 네이티브 모드로 돌아 배포(Neon/Postgres)와 SQL/DDL이 어긋날 수 있다(위 주석의 그 상황).
 spring.datasource.url=jdbc:h2:mem:pulse;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-spring.datasource.username=sa
-spring.datasource.password=
 
 spring.jpa.hibernate.ddl-auto=create-drop
 
