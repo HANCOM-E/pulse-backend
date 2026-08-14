@@ -1,5 +1,7 @@
 package com.hancome.pulse.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * 우리가 의도적으로 던진 도메인 예외를 그 {@link ErrorCode}에 정의된 상태/메시지로 변환한다.
@@ -66,6 +69,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+        // 스택트레이스는 서버 로그에만 남기고, 클라이언트엔 내부 정보 없는 고정 메시지만 준다.
+        log.error("처리되지 않은 예외", e);
         ErrorCode code = ErrorCode.INTERNAL_ERROR;
         return ResponseEntity.status(code.status()).body(new ErrorResponse(code.name(), code.defaultMessage()));
     }
