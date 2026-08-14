@@ -8,6 +8,7 @@ import com.hancome.pulse.event.EventStatus;
 import com.hancome.pulse.report.dto.PublicReport;
 import com.hancome.pulse.report.dto.ReportResponse;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,7 +59,13 @@ public class ReportService {
             report.setUnclassifiedCount(null);
             report.setTopKeywords(null);
         }
-        reportRepository.save(report);
+        try {
+            reportRepository.saveAndFlush(report); // INSERT 즉시 실행 → event_id UNIQUE 위반을 여기서 잡는다
+        } catch (DataIntegrityViolationException e) {
+            // 사전 조회와 저장 사이의 동시 generate 레이스(둘 다 커밋 전 조회 → 둘 다 신규 생성) → UNIQUE 위반을
+            // 중복 생성과 동일하게 매핑한다(500 대신 409). signUp의 이메일 유니크 처리와 같은 방식.
+            throw new ApiException(ErrorCode.REPORT_ALREADY_EXISTS);
+        }
 
         // 커밋 후 워커가 받도록 발행(AFTER_COMMIT). 커밋 전이면 워커가 GENERATING 행을 못 볼 수 있다.
         eventPublisher.publishEvent(new ReportGenerationRequested(report.getId(), eventCode));
