@@ -408,6 +408,10 @@ paths:
     post:
       tags: [feedback]
       summary: 소감 제출 (공개, 클라이언트 태깅 계약)
+      description: >
+        처리 순서: Event LIVE·세션 ACTIVE 확인 → 제출 빈도 제한 → 저장.
+        toxic=true면 저장 시 status=HIDDEN으로 넣어 게스트 집계 스냅샷(VISIBLE)에서 즉시 제외한다.
+        주최자는 /admin/feedbacks?includeHidden=true&toxic=true 로 자동숨김된 소감을 검토·복원할 수 있다.
       security: []
       parameters:
         - $ref: "#/components/parameters/EventCodePath"
@@ -1051,6 +1055,7 @@ components:
           $ref: "#/components/schemas/Sentiment"
         toxic:
           type: boolean
+          description: 클라 태깅 독성 여부. true면 저장 시 즉시 HIDDEN 처리(게스트 집계 제외).
         keywords:
           type: array
           items:
