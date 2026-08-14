@@ -211,6 +211,26 @@ class EventServiceTest {
     }
 
     @Test
+    void 세션이_있어도_전부_DELETED면_LIVE_전이가_INVALID() {
+        // given — 세션을 붙였다가 소프트 삭제해 열린 세션이 하나도 없는 상태
+        User owner = persistOwner(TEST_EMAIL);
+        String code = eventService.create(owner.getId(), TEST_CREATE_REQUEST).code();
+        Event event = eventRepository.findByCode(code).orElseThrow();
+        Session deleted = new Session(event, "삭제됨", 1);
+        deleted.setStatus(SessionStatus.DELETED);
+        em.persist(deleted);
+        em.flush();
+        em.clear();
+
+        // when/then — DELETED는 세지 않으므로 세션 0개와 동일하게 거부
+        assertThatThrownBy(() -> eventService.update(
+                        owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE, null)))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).errorCode())
+                .isEqualTo(ErrorCode.INVALID_EVENT_STATE_TRANSITION);
+    }
+
+    @Test
     void DRAFT에서_ENDED로는_전이할_수_없다_INVALID() {
         // given
         User owner = persistOwner(TEST_EMAIL);

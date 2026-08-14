@@ -116,7 +116,7 @@ public class EventService {
             EventStatus to = req.status();
             boolean valid = (from == EventStatus.DRAFT
                             && to == EventStatus.LIVE
-                            && !event.getSessions().isEmpty())
+                            && event.getSessions().stream().anyMatch(s -> s.getStatus() != SessionStatus.DELETED))
                     || (from == EventStatus.LIVE && to == EventStatus.ENDED);
             if (!valid) throw new ApiException(ErrorCode.INVALID_EVENT_STATE_TRANSITION);
             event.setStatus(to);

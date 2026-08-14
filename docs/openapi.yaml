@@ -228,7 +228,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: "유효하지 않은 상태 전이 (code: INVALID_EVENT_STATE_TRANSITION)"
+          description: "유효하지 않은 상태 전이 (code: INVALID_EVENT_STATE_TRANSITION). DRAFT→LIVE는 삭제되지 않은 세션이 1개 이상이어야 하며(DELETED 세션은 세지 않음), LIVE→ENDED만 허용."
           content:
             application/json:
               schema:
