@@ -363,6 +363,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "409":
+          description: "이미 DELETED 상태 (code: SESSION_ALREADY_DELETED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     delete:
       tags: [event]
       summary: 세션 삭제 (소프트 삭제, 소유자만)
@@ -545,6 +551,9 @@ paths:
     patch:
       tags: [report]
       summary: 리포트 공개 여부 토글 (소유자만)
+      description: >
+        status가 GENERATED인 리포트만 토글 가능. GENERATING/FAILED이거나 리포트가 없으면
+        REPORT_NOT_FOUND(404) — 미완성 리포트를 공개하면 게스트가 빈 PublicReport를 받기 때문.
       parameters:
         - $ref: "#/components/parameters/EventCodePath"
       requestBody:
@@ -573,7 +582,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "404":
-          description: "리포트 없음 — 아직 생성 전 (code: REPORT_NOT_FOUND)"
+          description: "리포트 없음(아직 생성 전) 또는 status가 GENERATED 아님(GENERATING/FAILED) (code: REPORT_NOT_FOUND)"
           content:
             application/json:
               schema:
