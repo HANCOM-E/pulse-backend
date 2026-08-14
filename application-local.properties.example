@@ -15,6 +15,9 @@ spring.datasource.password=
 
 spring.jpa.hibernate.ddl-auto=create-drop
 
+# 로컬은 SQL 로그 켜둔다(배포 base는 off). 끄고 싶으면 이 줄 삭제 또는 false.
+spring.jpa.show-sql=true
+
 # JWT secret (필수). 소스에 폴백을 두지 않으므로 로컬에서도 반드시 지정해야 부팅됩니다.
 # HS256 서명이라 최소 32바이트(256비트) 이상으로. 배포(Render)는 이 파일 대신 env JWT_SECRET를 씁니다.
 jwt.secret=local-dev-only-jwt-secret-change-me-min-32-bytes
