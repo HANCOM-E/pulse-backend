@@ -186,6 +186,26 @@ class FeedbackServiceTest {
     }
 
     @Test
+    void toxic_소감은_HIDDEN으로_저장된다() {
+        // given
+        Event event = persistEvent("EVT-A", EventStatus.LIVE);
+        Session session = persistSession(event, SessionStatus.ACTIVE);
+        em.flush();
+        em.clear();
+        FeedbackSubmitRequest req =
+                new FeedbackSubmitRequest(session.getId(), "욕설", Sentiment.NEG, true, List.of(), "kobert-v1");
+
+        // when
+        FeedbackView view = feedbackService.submit("EVT-A", req, "client-1");
+        em.flush();
+        em.clear();
+
+        // then — 제출 즉시 HIDDEN이라 게스트 집계(VISIBLE)엔 안 잡힌다
+        assertThat(feedbackRepository.findById(view.id()).orElseThrow().getStatus())
+                .isEqualTo(FeedbackStatus.HIDDEN);
+    }
+
+    @Test
     void 이벤트가_LIVE가_아니면_EVENT_NOT_LIVE() {
         // given
         Event event = persistEvent("EVT-A", EventStatus.DRAFT);

@@ -106,7 +106,7 @@ public class FeedbackService {
 
         Feedback feedback =
                 new Feedback(session, req.text(), req.sentiment(), req.toxic(), req.taggerVersion(), req.keywords());
-
+        if (req.toxic()) feedback.setStatus(FeedbackStatus.HIDDEN);
         feedbackRepository.save(feedback);
 
         return FeedbackView.from(feedback);
