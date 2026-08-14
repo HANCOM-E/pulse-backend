@@ -244,6 +244,38 @@ class EventServiceTest {
         assertThat(eventRepository.findByCode(code).orElseThrow().getStatus()).isEqualTo(EventStatus.ENDED);
     }
 
+    @Test
+    void ENDED로_전이되면_열린_세션이_CLOSED로_정합된다() {
+        // given — LIVE 이벤트 + ACTIVE·CLOSED·DELETED 세션
+        User owner = persistOwner(TEST_EMAIL);
+        String code = eventService.create(owner.getId(), TEST_CREATE_REQUEST).code();
+        Event event = eventRepository.findByCode(code).orElseThrow();
+        Session active = new Session(event, "열림", 1);
+        active.setStatus(SessionStatus.ACTIVE);
+        Session closed = new Session(event, "이미마감", 2);
+        closed.setStatus(SessionStatus.CLOSED);
+        Session deleted = new Session(event, "삭제됨", 3);
+        deleted.setStatus(SessionStatus.DELETED);
+        em.persist(active);
+        em.persist(closed);
+        em.persist(deleted);
+        em.flush();
+        em.clear();
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.LIVE, null));
+        em.flush();
+        em.clear();
+
+        // when
+        eventService.update(owner.getId(), code, new EventUpdateRequest(null, null, EventStatus.ENDED, null));
+        em.flush();
+        em.clear();
+
+        // then — ACTIVE만 CLOSED로, CLOSED·DELETED는 그대로
+        assertThat(em.find(Session.class, active.getId()).getStatus()).isEqualTo(SessionStatus.CLOSED);
+        assertThat(em.find(Session.class, closed.getId()).getStatus()).isEqualTo(SessionStatus.CLOSED);
+        assertThat(em.find(Session.class, deleted.getId()).getStatus()).isEqualTo(SessionStatus.DELETED);
+    }
+
     // ===================== delete =====================
 
     @Test
