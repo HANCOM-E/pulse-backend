@@ -4,6 +4,7 @@ import com.hancome.pulse.event.Session;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.List;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
@@ -31,6 +32,7 @@ public class Feedback {
     private String taggerVersion;
 
     @ElementCollection
+    @BatchSize(size = 100)
     private List<String> keywords;
 
     @Enumerated(EnumType.STRING)
