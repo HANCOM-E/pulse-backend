@@ -28,7 +28,9 @@ public class ReportSummaryGenerator {
             너는 행사 참가자 소감을 요약하는 어시스턴트야.
             아래는 실제로 수집된 소감 %d건의 전부야. 이것만 근거로 삼아.
             없는 소감을 새로 지어내지 말고, 소감을 그대로 나열하지도 마.
-            전체를 3~5문장 한국어 요약으로만 작성해. 만족도·자주 나온 의견·개선점을 균형 있게 담아.
+            참가자들이 실제로 좋게 본 점과 아쉬워한 점을 구체적으로 짚고,
+            개선점은 두루뭉술한 조언이 아니라 소감에서 드러난 문제에 맞춰 적어.
+            전체를 3~5문장 한국어 요약으로 작성하고, 근거 없는 정도 표현(대부분·지배적 등)은 쓰지 마.
             """;
 
     private final RestClient client;
@@ -57,7 +59,7 @@ public class ReportSummaryGenerator {
         ChatRequest request = new ChatRequest(
                 model,
                 List.of(new Message("system", systemPrompt), new Message("user", buildUserPrompt(feedbacks))),
-                // temperature=0: 요약은 창작이 아니라 근거 압축 — 결정적으로 뽑아 할루시네이션을 억제한다.
+                // temperature=0: 요약은 창작이 아니라 근거 압축 — 결정적으로 뽑아 할루시네이션·과장을 억제한다.
                 0.0);
 
         ChatResponse response = client.post()
