@@ -24,7 +24,7 @@ public class AuthController {
     }
 
     private ResponseCookie accessTokenCookie(String token, long maxAgeSeconds) {
-        return ResponseCookie.from(JwtAuthenticationFilter.ACCESS_TOKEN_COOKIE, token)
+        return ResponseCookie.from(AuthCookies.ACCESS_TOKEN_COOKIE, token)
                 .httpOnly(true)
                 .secure(cookieProperties.secure())
                 .sameSite(cookieProperties.sameSite())
@@ -33,34 +33,55 @@ public class AuthController {
                 .build();
     }
 
+    private ResponseCookie refreshTokenCookie(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(AuthCookies.REFRESH_TOKEN_COOKIE, token)
+                .httpOnly(true)
+                .secure(cookieProperties.secure())
+                .sameSite(cookieProperties.sameSite())
+                .path(AuthCookies.REFRESH_TOKEN_PATH)
+                .maxAge(Duration.ofSeconds(maxAgeSeconds))
+                .build();
+    }
+
+    // 액세스+리프레시 쿠키를 함께 실은 응답을 만든다(로그인·가입·재발급 공통).
+    private ResponseEntity<AuthUser> withTokenCookies(HttpStatus status, AuthResult r) {
+        return ResponseEntity.status(status)
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        accessTokenCookie(r.accessToken(), r.accessExpiresInSeconds())
+                                .toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookie(r.refreshToken(), r.refreshExpiresInSeconds())
+                                .toString())
+                .body(r.user());
+    }
+
     @Operation(security = {}) // 공개 진입점 — 전역 cookieAuth 요구 해제
     @PostMapping("/signup")
     public ResponseEntity<AuthUser> signup(@Valid @RequestBody SignupRequest req) {
-        AuthResult authResult = authService.signUp(req);
-        ResponseCookie cookie = accessTokenCookie(authResult.token(), authResult.expiresInSeconds());
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(authResult.user());
+        return withTokenCookies(HttpStatus.CREATED, authService.signUp(req));
     }
 
     @Operation(security = {}) // 공개 진입점
     @PostMapping("/login")
     public ResponseEntity<AuthUser> login(@Valid @RequestBody LoginRequest req) {
-        AuthResult authResult = authService.login(req);
-        ResponseCookie cookie = accessTokenCookie(authResult.token(), authResult.expiresInSeconds());
+        return withTokenCookies(HttpStatus.OK, authService.login(req));
+    }
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(authResult.user());
+    @Operation(security = {}) // 리프레시 쿠키만으로 재발급(액세스 토큰 만료 후 호출)
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthUser> refresh(
+            @CookieValue(value = AuthCookies.REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        return withTokenCookies(HttpStatus.OK, authService.refresh(refreshToken));
     }
 
     @Operation(security = {}) // 로그아웃은 토큰 없이도 호출 가능(쿠키 만료)
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
-        ResponseCookie cookie = accessTokenCookie("", 0);
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.SET_COOKIE, accessTokenCookie("", 0).toString())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie("", 0).toString())
                 .build();
     }
 

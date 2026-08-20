@@ -3,6 +3,7 @@ package com.hancome.pulse.auth;
 import com.hancome.pulse.auth.dto.*;
 import com.hancome.pulse.common.ApiException;
 import com.hancome.pulse.common.ErrorCode;
+import io.jsonwebtoken.JwtException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,12 +46,7 @@ public class AuthService {
             throw new ApiException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         // 가입과 동시에 토큰 발급(자동 로그인) — 팀 API 명세서 확정.
-        String token = jwtProvider.generateToken(user.getId());
-
-        return new AuthResult(
-                new AuthUser(user.getId(), user.getEmail(), user.getCreatedAt()),
-                token,
-                jwtProvider.getExpirationInSeconds());
+        return issue(user);
     }
 
     /**
@@ -73,11 +69,37 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        String token = jwtProvider.generateToken(user.getId());
+        return issue(user);
+    }
+
+    /**
+     * 리프레시 토큰을 검증하고 새 액세스·리프레시 토큰을 발급한다(슬라이딩 세션).
+     *
+     * @param refreshToken 리프레시 쿠키 값(없거나 만료·위조면 실패)
+     * @return 새 토큰 쌍 + 유저
+     * @throws ApiException 토큰이 유효하지 않거나 유저가 사라졌으면 {@code UNAUTHORIZED}
+     */
+    public AuthResult refresh(String refreshToken) {
+        Long userId;
+        try {
+            userId = jwtProvider.parseRefreshUserId(refreshToken);
+        } catch (JwtException | IllegalArgumentException e) {
+            // 만료·서명불일치·타입불일치·null 모두 인증 실패로 통일
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHORIZED));
+        return issue(user);
+    }
+
+    // 액세스+리프레시 토큰을 함께 발급한다. ponytail: 무상태라 재발급 시 이전 리프레시 토큰도 만료까지 유효하다
+    // (로그아웃은 쿠키 삭제일 뿐 서버 강제 무효화는 없음). 도난 즉시 무효화가 필요해지면 그때 토큰 저장소를 도입한다.
+    private AuthResult issue(User user) {
         return new AuthResult(
                 new AuthUser(user.getId(), user.getEmail(), user.getCreatedAt()),
-                token,
-                jwtProvider.getExpirationInSeconds());
+                jwtProvider.generateAccessToken(user.getId()),
+                jwtProvider.getAccessExpirationInSeconds(),
+                jwtProvider.generateRefreshToken(user.getId()),
+                jwtProvider.getRefreshExpirationInSeconds());
     }
 
     public AuthUser getUser(Long userId) {
