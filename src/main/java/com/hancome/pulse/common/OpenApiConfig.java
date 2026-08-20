@@ -1,5 +1,6 @@
 package com.hancome.pulse.common;
 
+import com.hancome.pulse.auth.AuthCookies;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -14,7 +15,6 @@ public class OpenApiConfig {
     // 인증은 HttpOnly 쿠키(accessToken)로 한다. JwtAuthenticationFilter도 이 쿠키만 읽으므로,
     // 문서의 보안 스킴을 apiKey(in cookie)로 선언해 docs/openapi.yaml의 cookieAuth와 일치시킨다.
     private static final String COOKIE_SCHEME = "cookieAuth";
-    private static final String ACCESS_TOKEN_COOKIE = "accessToken";
 
     @Bean
     OpenAPI pulseOpenApi() {
@@ -32,6 +32,6 @@ public class OpenApiConfig {
                                 new SecurityScheme()
                                         .type(SecurityScheme.Type.APIKEY)
                                         .in(SecurityScheme.In.COOKIE)
-                                        .name(ACCESS_TOKEN_COOKIE)));
+                                        .name(AuthCookies.ACCESS_TOKEN_COOKIE)));
     }
 }

@@ -16,9 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    /** JWT를 담는 쿠키 이름. 발급(AuthController)과 검증(이 필터)이 같은 값을 써야 한다. */
-    public static final String ACCESS_TOKEN_COOKIE = "accessToken";
-
     private final JwtProvider jwtProvider;
 
     public JwtAuthenticationFilter(JwtProvider jwtProvider) {
@@ -43,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * HttpOnly 쿠키 {@value #ACCESS_TOKEN_COOKIE}에서 JWT를 꺼낸다. FE가 JS로 못 읽는 쿠키라 Authorization 헤더 대신
+     * HttpOnly 쿠키 {@value AuthCookies#ACCESS_TOKEN_COOKIE}에서 JWT를 꺼낸다. FE가 JS로 못 읽는 쿠키라 Authorization 헤더 대신
      * 쿠키로 온다(브라우저가 자동 첨부).
      *
      * @param request 요청
@@ -55,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return null;
         }
         for (Cookie cookie : cookies) {
-            if (ACCESS_TOKEN_COOKIE.equals(cookie.getName())) {
+            if (AuthCookies.ACCESS_TOKEN_COOKIE.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }

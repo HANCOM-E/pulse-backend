@@ -1,5 +1,6 @@
 package com.hancome.pulse.common;
 
+import com.hancome.pulse.auth.AuthCookies;
 import com.hancome.pulse.auth.JwtAuthenticationFilter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,15 +51,22 @@ public class SecurityConfig {
                         // 로그인·회원가입은 아직 토큰이 없는 진입점이라 CSRF 예외. 소감 제출은 비인증 공개(보호할 세션 없음)라 예외.
                         // 나머지 상태변경은 토큰 필요.
                         .ignoringRequestMatchers(
-                                "/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/events/*/feedbacks"))
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/signup",
+                                AuthCookies.REFRESH_TOKEN_PATH,
+                                "/api/v1/events/*/feedbacks"))
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers("/api/v1/health", "/swagger-ui/**", "/v3/api-docs/**")
                         .permitAll() // 헬스체크·Swagger 문서 공개
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/logout")
-                        .permitAll() // 로그인·회원가입·로그아웃은 공개(/auth/me는 인증 필요 → anyRequest로 빠짐)
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/logout",
+                                AuthCookies.REFRESH_TOKEN_PATH)
+                        .permitAll() // 로그인·회원가입·로그아웃·재발급은 공개(/auth/me는 인증 필요 → anyRequest로 빠짐)
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*")
                         .permitAll() // 이벤트 단건 공개 조회. 목록(GET /events)·쓰기는 인증 유지
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions")
