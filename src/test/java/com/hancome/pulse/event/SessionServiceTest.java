@@ -38,7 +38,7 @@ class SessionServiceTest {
 
     @BeforeEach
     void setUp() {
-        sessionService = new SessionService(eventRepository, sessionRepository);
+        sessionService = new SessionService(eventRepository, sessionRepository, event -> {});
     }
 
     private User persistOwner(String email) {

@@ -8,6 +8,7 @@ import com.hancome.pulse.event.dto.SessionResponse;
 import com.hancome.pulse.event.dto.SessionUpdateRequest;
 import java.util.List;
 import org.jspecify.annotations.NonNull;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,10 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class SessionService {
     private final EventRepository eventRepository;
     private final SessionRepository sessionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public SessionService(EventRepository eventRepository, SessionRepository sessionRepository) {
+    public SessionService(
+            EventRepository eventRepository,
+            SessionRepository sessionRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.eventRepository = eventRepository;
         this.sessionRepository = sessionRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -42,6 +48,7 @@ public class SessionService {
 
         Session session = new Session(event, req.title(), req.order());
         sessionRepository.save(session);
+        eventPublisher.publishEvent(new SessionChanged(eventCode)); // 세션 목록 변경 → 게스트 SSE 갱신
 
         return new SessionResponse(
                 session.getId(),
@@ -79,6 +86,8 @@ public class SessionService {
             session.setStatus(req.status());
         }
         sessionRepository.save(session);
+        eventPublisher.publishEvent(new SessionChanged(eventCode)); // 상태(ACTIVE↔CLOSED) 등 변경 → 게스트 SSE 갱신
+
         return new SessionResponse(
                 session.getId(),
                 session.getEvent().getId(),
@@ -102,6 +111,7 @@ public class SessionService {
         if (session.getStatus() == SessionStatus.DELETED) throw new ApiException(ErrorCode.SESSION_ALREADY_DELETED);
         session.setStatus(SessionStatus.DELETED);
         sessionRepository.save(session);
+        eventPublisher.publishEvent(new SessionChanged(eventCode)); // 세션 목록 변경 → 게스트 SSE 갱신
     }
 
     /**
