@@ -11,6 +11,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,14 +26,17 @@ public class FeedbackService {
     private final EventRepository eventRepository;
     private final SessionRepository sessionRepository;
     private final FeedbackRepository feedbackRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public FeedbackService(
             EventRepository eventRepository,
             SessionRepository sessionRepository,
-            FeedbackRepository feedbackRepository) {
+            FeedbackRepository feedbackRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.eventRepository = eventRepository;
         this.sessionRepository = sessionRepository;
         this.feedbackRepository = feedbackRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     private final Map<String, Deque<Instant>> rateLog = new ConcurrentHashMap<>();
@@ -108,6 +112,7 @@ public class FeedbackService {
                 new Feedback(session, req.text(), req.sentiment(), req.toxic(), req.taggerVersion(), req.keywords());
         if (req.toxic()) feedback.setStatus(FeedbackStatus.HIDDEN);
         feedbackRepository.save(feedback);
+        eventPublisher.publishEvent(new FeedbackChanged(eventCode)); // 집계·관리자 큐 SSE 갱신
 
         return FeedbackView.from(feedback);
     }

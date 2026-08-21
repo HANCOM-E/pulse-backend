@@ -75,7 +75,8 @@ class ReportServiceTest {
     @BeforeEach
     void setUp() {
         reportService = new ReportService(eventRepository, reportRepository, eventPublisher);
-        FeedbackService feedbackService = new FeedbackService(eventRepository, sessionRepository, feedbackRepository);
+        FeedbackService feedbackService =
+                new FeedbackService(eventRepository, sessionRepository, feedbackRepository, event -> {});
         // LLM 호출을 캔값으로 스텁 — 실네트워크 없이 파이프라인(집계·요약 저장)만 검증. 소감이 있는 테스트만 호출을 탄다.
         RestClient.Builder builder = RestClient.builder().baseUrl(ReportSummaryGenerator.OPENROUTER_URL);
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

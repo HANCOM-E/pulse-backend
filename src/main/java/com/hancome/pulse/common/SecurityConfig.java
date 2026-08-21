@@ -71,10 +71,14 @@ public class SecurityConfig {
                         .permitAll() // 이벤트 단건 공개 조회. 목록(GET /events)·쓰기는 인증 유지
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions")
                         .permitAll() // 세션 목록 공개 조회. 세션 쓰기는 인증 유지
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions/stream")
+                        .permitAll() // 세션 목록 SSE 공개(게스트가 세션 열림을 실시간 수신)
                         .requestMatchers(HttpMethod.POST, "/api/v1/events/*/feedbacks")
                         .permitAll() // 소감 제출 공개(게스트)
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/feedbacks")
                         .permitAll() // 집계 스냅샷 공개 조회
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/feedbacks/stream")
+                        .permitAll() // 집계 SSE 공개 스트림
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/report")
                         .permitAll() // 리포트 공개 조회(auth 인식: 소유자 전체 / 게스트 공개분)
                         .anyRequest()

@@ -55,7 +55,7 @@ class FeedbackServiceTest {
 
     @BeforeEach
     void setUp() {
-        feedbackService = new FeedbackService(eventRepository, sessionRepository, feedbackRepository);
+        feedbackService = new FeedbackService(eventRepository, sessionRepository, feedbackRepository, event -> {});
     }
 
     private Event persistEvent(String code, EventStatus status) {

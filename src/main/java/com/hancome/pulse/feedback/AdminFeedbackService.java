@@ -4,6 +4,7 @@ import com.hancome.pulse.common.ApiException;
 import com.hancome.pulse.common.ErrorCode;
 import com.hancome.pulse.feedback.dto.AdminFeedbackView;
 import com.hancome.pulse.feedback.dto.FeedbackListResponse;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminFeedbackService {
     private final FeedbackRepository feedbackRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public AdminFeedbackService(FeedbackRepository feedbackRepository) {
+    public AdminFeedbackService(FeedbackRepository feedbackRepository, ApplicationEventPublisher eventPublisher) {
         this.feedbackRepository = feedbackRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    // 모더레이션으로 공개 집계·관리자 큐가 바뀌므로 커밋 후 SSE 갱신을 트리거한다. eventCode는 소감이 속한 이벤트에서 얻는다.
+    private void publishChanged(Feedback f) {
+        eventPublisher.publishEvent(
+                new FeedbackChanged(f.getSession().getEvent().getCode()));
     }
 
     /**
@@ -42,6 +51,7 @@ public class AdminFeedbackService {
         Feedback f = loadOwnedFeedback(ownerId, feedbackId);
         if (f.getStatus() == FeedbackStatus.DELETED) throw new ApiException(ErrorCode.FEEDBACK_ALREADY_DELETED);
         f.setStatus(FeedbackStatus.HIDDEN);
+        publishChanged(f);
         return AdminFeedbackView.from(f);
     }
 
@@ -51,6 +61,7 @@ public class AdminFeedbackService {
         Feedback f = loadOwnedFeedback(ownerId, feedbackId);
         if (f.getStatus() == FeedbackStatus.DELETED) throw new ApiException(ErrorCode.FEEDBACK_ALREADY_DELETED);
         f.setStatus(FeedbackStatus.VISIBLE);
+        publishChanged(f);
         return AdminFeedbackView.from(f);
     }
 
@@ -60,6 +71,7 @@ public class AdminFeedbackService {
         Feedback f = loadOwnedFeedback(ownerId, feedbackId);
         if (f.getStatus() == FeedbackStatus.DELETED) throw new ApiException(ErrorCode.FEEDBACK_ALREADY_DELETED);
         f.setStatus(FeedbackStatus.DELETED);
+        publishChanged(f);
         return AdminFeedbackView.from(f);
     }
 

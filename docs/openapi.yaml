@@ -12,6 +12,8 @@ info:
     cross-site(FE Vercel ↔ BE Render)라 쿠키는 SameSite=None; Secure. SameSite 보호가 없으므로 CSRF는
     double-submit 토큰으로 막는다: 서버가 XSRF-TOKEN 쿠키(비-HttpOnly)를 내려주고, 상태변경 요청은 그 값을
     X-XSRF-TOKEN 헤더로 되돌려보내야 한다.
+    세션 유지: accessToken(1h) 만료 시 refreshToken(14d, Path=/) 쿠키로 POST /auth/refresh를
+    호출해 두 토큰을 재발급받는다(슬라이딩 세션). 로그인·회원가입이 두 쿠키를 함께 발급하고, 로그아웃이 둘 다 만료시킨다.
 servers:
   - url: /api/v1
 tags:
@@ -37,11 +39,11 @@ paths:
       responses:
         "200":
           description: >
-            로그인 성공. accessToken을 HttpOnly 쿠키로 발급(Set-Cookie), 바디엔 로그인한 유저 정보만.
+            로그인 성공. accessToken·refreshToken을 HttpOnly 쿠키로 발급(Set-Cookie), 바디엔 로그인한 유저 정보만.
             CSRF용 XSRF-TOKEN 쿠키도 함께 내려간다.
           headers:
             Set-Cookie:
-              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
+              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ · refreshToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
               schema:
                 type: string
           content:
@@ -68,10 +70,10 @@ paths:
               $ref: "#/components/schemas/SignupRequest"
       responses:
         "201":
-          description: 가입 성공, accessToken을 HttpOnly 쿠키로 즉시 발급(자동 로그인). 바디엔 유저 정보만.
+          description: 가입 성공, accessToken·refreshToken을 HttpOnly 쿠키로 즉시 발급(자동 로그인). 바디엔 유저 정보만.
           headers:
             Set-Cookie:
-              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
+              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ · refreshToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ (+ XSRF-TOKEN 쿠키)"
               schema:
                 type: string
           content:
@@ -91,16 +93,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: 토큰 재발급 (refreshToken 쿠키로 슬라이딩 세션)
+      description: >
+        accessToken 만료 후 호출한다. 요청 바디 없음 — refreshToken 쿠키만으로 검증한다.
+        성공 시 새 accessToken·refreshToken을 함께 재발급한다. 무상태라 서버 강제 무효화는 없다(이전 토큰은 만료까지 유효).
+      security: []
+      responses:
+        "200":
+          description: 재발급 성공. 새 accessToken·refreshToken을 Set-Cookie로 내려주고, 바디엔 유저 정보만.
+          headers:
+            Set-Cookie:
+              description: "accessToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/ · refreshToken=<jwt>; HttpOnly; Secure; SameSite=None; Path=/"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: "refreshToken 없음/만료/위조 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /auth/logout:
     post:
       tags: [auth]
-      summary: 로그아웃 (accessToken 쿠키 만료)
+      summary: 로그아웃 (accessToken·refreshToken 쿠키 만료)
       responses:
         "204":
-          description: 로그아웃 성공. accessToken 쿠키를 만료시키는 Set-Cookie 반환.
+          description: 로그아웃 성공. accessToken·refreshToken 쿠키를 만료시키는 Set-Cookie 반환.
           headers:
             Set-Cookie:
-              description: "accessToken=; Max-Age=0 (쿠키 삭제)"
+              description: "accessToken=; Max-Age=0 · refreshToken=; Max-Age=0 (쿠키 삭제)"
               schema:
                 type: string
 
@@ -476,14 +505,41 @@ paths:
   /events/{eventCode}/feedbacks/stream:
     get:
       tags: [feedback]
-      summary: 실시간 집계 구독 (SSE, 스트레치)
+      summary: 실시간 집계 구독 (SSE)
       security: []
-      description: 공개. 각 이벤트 data는 FeedbackSnapshot JSON.
+      description: >
+        공개. 연결 시 현재 스냅샷 1건을 보내고, 소감 제출·모더레이션으로 바뀔 때마다 갱신 스냅샷을 push한다(폴링 대체).
+        각 이벤트는 name=snapshot, data는 GET /feedbacks와 동일한 FeedbackSnapshot JSON. ~25초마다 :ping 코멘트(idle 차단).
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - name: sessionId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          description: 특정 세션으로 스냅샷을 좁힘(GET /feedbacks와 동일).
+      responses:
+        "200":
+          description: text/event-stream 으로 FeedbackSnapshot(name=snapshot) 반복 전송
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /events/{eventCode}/sessions/stream:
+    get:
+      tags: [event]
+      summary: 세션 목록 실시간 구독 (SSE)
+      security: []
+      description: >
+        공개. 연결 시 현재 세션 목록 1건을 보내고, 주최자가 세션을 열고/닫거나 생성·삭제할 때마다 갱신 목록을 push한다.
+        게스트가 새로고침 없이 세션 open/close를 반영받는다. 각 이벤트는 name=snapshot, data는 GET /sessions와 동일한 SessionListResponse JSON.
       parameters:
         - $ref: "#/components/parameters/EventCodePath"
       responses:
         "200":
-          description: text/event-stream 으로 FeedbackSnapshot 반복 전송
+          description: text/event-stream 으로 SessionListResponse(name=snapshot) 반복 전송
           content:
             text/event-stream:
               schema:
@@ -638,6 +694,63 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/feedbacks/stream:
+    get:
+      tags: [admin]
+      summary: 모더레이션 큐 실시간 구독 (SSE, 소유자만)
+      description: >
+        소유자 전용. 연결 시 현재 큐 1건을 보내고, 소감 제출·숨김/해제/삭제로 바뀔 때마다 갱신 큐를 push한다.
+        각 이벤트는 name=snapshot, data는 GET /admin/feedbacks와 동일한 FeedbackListResponse JSON.
+      parameters:
+        - name: eventCode
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 구독할 이벤트(소유권 검증 대상).
+        - name: sessionId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: toxic
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: includeHidden
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: text/event-stream 으로 FeedbackListResponse(name=snapshot) 반복 전송
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 이벤트 (code: EVENT_NOT_FOUND)"
           content:
             application/json:
               schema:

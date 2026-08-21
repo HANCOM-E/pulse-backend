@@ -49,7 +49,7 @@ class AdminFeedbackServiceTest {
 
     @BeforeEach
     void setUp() {
-        adminFeedbackService = new AdminFeedbackService(feedbackRepository);
+        adminFeedbackService = new AdminFeedbackService(feedbackRepository, event -> {});
     }
 
     private User persistOwner(String email) {
