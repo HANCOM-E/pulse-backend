@@ -22,7 +22,8 @@ public record AdminFeedbackView(
         Instant createdAt) {
 
     /**
-     * 엔티티 → 관리자 뷰 매핑. {@code session}은 지연 로딩이므로 트랜잭션 안에서 호출해야 한다.
+     * 엔티티 → 관리자 뷰 매핑. {@code session}·{@code keywords}는 지연 로딩이므로 트랜잭션 안에서 호출해야 한다. {@code
+     * keywords}는 {@link List#copyOf}로 즉시 복사해, 트랜잭션(=OSIV) 밖(예: SSE 비동기 직렬화)에서 지연 초기화가 터지지 않게 한다.
      *
      * @param f 소감 엔티티
      * @return 관리자 풀뷰 DTO
@@ -34,7 +35,7 @@ public record AdminFeedbackView(
                 f.getText(),
                 f.getSentiment(),
                 f.getToxic(),
-                f.getKeywords(),
+                List.copyOf(f.getKeywords()),
                 f.getTaggerVersion(),
                 f.getStatus(),
                 f.getCreatedAt());
