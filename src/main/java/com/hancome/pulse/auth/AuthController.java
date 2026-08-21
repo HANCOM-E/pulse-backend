@@ -38,7 +38,9 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(cookieProperties.secure())
                 .sameSite(cookieProperties.sameSite())
-                .path(AuthCookies.REFRESH_TOKEN_PATH)
+                // Path=/ 로 둔다: 브라우저는 Next 프록시(/api/proxy/**)로만 요청하므로, 쿠키 Path를 백엔드
+                // 라우트(/api/v1/auth/refresh)로 좁히면 브라우저 요청 경로와 안 맞아 쿠키가 아예 안 실린다.
+                .path("/")
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))
                 .build();
     }
