@@ -12,6 +12,9 @@ public final class AuthCookies {
     /** 리프레시 토큰 쿠키 이름(HttpOnly). */
     public static final String REFRESH_TOKEN_COOKIE = "refreshToken";
 
-    /** 리프레시 쿠키·엔드포인트 경로. 쿠키를 이 경로로 좁혀 다른 요청엔 안 실리게 하고, 시큐리티 매처도 같은 값을 써 일치를 강제한다. */
+    /**
+     * 리프레시 엔드포인트의 백엔드 라우트 경로(시큐리티 매처·CSRF 예외가 이 값을 공유). 쿠키 Path 속성으로는 쓰지 않는다 — 브라우저는
+     * Next 프록시(/api/proxy/**)로만 요청해 이 경로로 좁히면 쿠키가 안 실리므로, refreshToken 쿠키는 accessToken과 같이 Path=/로 발급한다.
+     */
     public static final String REFRESH_TOKEN_PATH = "/api/v1/auth/refresh";
 }
