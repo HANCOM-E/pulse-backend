@@ -6,6 +6,8 @@ import com.hancome.pulse.event.Event;
 import com.hancome.pulse.event.EventRepository;
 import com.hancome.pulse.event.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,14 +47,19 @@ public class SseStreamController {
 
     @Operation(security = {}) // 공개 집계 스트림
     @GetMapping("/api/v1/events/{eventCode}/feedbacks/stream")
-    public SseEmitter feedbackStream(@PathVariable String eventCode, @RequestParam(required = false) Long sessionId) {
+    public SseEmitter feedbackStream(
+            @PathVariable String eventCode,
+            @RequestParam(required = false) Long sessionId,
+            HttpServletResponse response) {
+        setStreamHeaders(response);
         return sseHub.subscribe(
                 SseHub.feedbackChannel(eventCode), () -> feedbackService.getSnapshot(eventCode, sessionId));
     }
 
     @Operation(security = {}) // 공개 세션목록 스트림 — 세션 열림/닫힘을 게스트에 실시간 반영
     @GetMapping("/api/v1/events/{eventCode}/sessions/stream")
-    public SseEmitter sessionStream(@PathVariable String eventCode) {
+    public SseEmitter sessionStream(@PathVariable String eventCode, HttpServletResponse response) {
+        setStreamHeaders(response);
         return sseHub.subscribe(SseHub.sessionsChannel(eventCode), () -> sessionService.listPublic(eventCode));
     }
 
@@ -62,11 +69,20 @@ public class SseStreamController {
             @RequestParam String eventCode,
             @RequestParam(required = false) Long sessionId,
             @RequestParam(required = false) Boolean toxic,
-            @RequestParam(defaultValue = "false") boolean includeHidden) {
+            @RequestParam(defaultValue = "false") boolean includeHidden,
+            HttpServletResponse response) {
         assertOwnsEvent(userId, eventCode);
+        setStreamHeaders(response);
         return sseHub.subscribe(
                 SseHub.feedbackChannel(eventCode),
                 () -> adminFeedbackService.list(userId, eventCode, sessionId, toxic, includeHidden));
+    }
+
+    // SSE가 프록시(Vercel/Next 엣지)에서 막히는 걸 방지한다. no-transform: 중간 계층 gzip 변형 금지(압축기가 스트림을
+    // 버퍼에 가둬 EventSource가 OPEN까지만 되고 이벤트를 0건 받는 현상). X-Accel-Buffering: nginx류 프록시 응답 버퍼링 끔.
+    private static void setStreamHeaders(HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-cache, no-transform");
+        response.setHeader("X-Accel-Buffering", "no");
     }
 
     // 관리자 스트림은 자기 이벤트만 구독 가능. 소감이 하나도 없어도 검증되게 이벤트 소유권을 직접 확인한다.
