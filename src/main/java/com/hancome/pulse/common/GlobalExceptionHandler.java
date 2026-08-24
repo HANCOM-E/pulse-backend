@@ -7,6 +7,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
 /**
  * 컨트롤러/서비스에서 올라온 예외를 팀 API 명세서의 공통 봉투({@code {code, message}})로 변환한다.
@@ -59,6 +60,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException e) {
         ErrorCode code = ErrorCode.VALIDATION_ERROR;
         return ResponseEntity.status(code.status()).body(new ErrorResponse(code.name(), "요청 본문을 읽을 수 없습니다"));
+    }
+
+    /**
+     * SSE 클라이언트가 연결을 끊은 뒤(탭 닫기·이탈·새로고침) 서버가 그 죽은 async 커넥션에 쓰려다 나는 예외.
+     *
+     * <p>응답할 대상이 이미 없으므로 조용히 삼킨다(void 반환 → 바디 미작성). 잡지 않으면 아래 catch-all이 받아
+     * {@code ErrorResponse}(JSON)를 {@code text/event-stream} 응답에 쓰려다 2차 예외까지 내며 로그를 오염시킨다. 구독자
+     * 정리는 {@code SseHub}의 {@code onError/onTimeout}이 담당하므로 여기선 DEBUG 로그만 남긴다.
+     *
+     * @param e 클라이언트 연결 끊김 알림 예외
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientDisconnect(AsyncRequestNotUsableException e) {
+        log.debug("[SSE] client disconnected: {}", e.getMessage());
     }
 
     /**
