@@ -22,6 +22,7 @@ tags:
   - name: feedback
   - name: admin
   - name: report
+  - name: game
 security:
   - cookieAuth: []
 paths:
@@ -870,6 +871,275 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /events/{eventCode}/games:
+    post:
+      tags: [game]
+      summary: 미니게임 생성 (소유자만)
+      description: 핀볼 레이스. status=DRAFT, gameType=PINBALL로 시작.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameCreateRequest"
+      responses:
+        "201":
+          description: 생성 성공 (status = DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 이벤트 (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [game]
+      summary: 게임 목록 조회 (소유자만)
+      description: 이벤트의 전체 게임(최근 생성 순). DRAFT 포함.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: 게임 목록 ({items} 봉투)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameListResponse"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "존재하지 않는 이벤트 (code: EVENT_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/games/current:
+    get:
+      tags: [game]
+      summary: 현재 게임 조회 (공개)
+      security: []
+      description: DRAFT를 제외한 가장 최근 게임 1개. 게스트 참가 화면용.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+      responses:
+        "200":
+          description: 현재 게임 (공개 뷰)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "404":
+          description: "조건에 맞는 게임 없음 (code: GAME_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/games/{gameId}:
+    get:
+      tags: [game]
+      summary: 게임 단건 조회 (공개)
+      security: []
+      description: 이벤트 스코프. 상태·참가자·결과(순위) 포함.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/GameIdPath"
+      responses:
+        "200":
+          description: 게임 상세 (공개 뷰)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "404":
+          description: "해당 이벤트에 그 게임 없음 (code: GAME_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags: [game]
+      summary: 게임 상태 전이 (소유자만)
+      description: >
+        단방향 상태머신 DRAFT→OPEN→RUNNING→FINISHED. 한 단계씩만 전진(되돌리기·건너뛰기 불가).
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/GameIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameStatusUpdateRequest"
+      responses:
+        "200":
+          description: 전이 성공
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "해당 이벤트에 그 게임 없음 (code: GAME_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "종료된 게임 (code: GAME_ALREADY_FINISHED) / 잘못된 전이 (code: INVALID_GAME_STATE_TRANSITION)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/games/{gameId}/results:
+    post:
+      tags: [game]
+      summary: 게임 결과(순위) 확정 (소유자만)
+      description: >
+        게임이 RUNNING일 때만 허용. ranking=참가자 PK 배열(1등이 첫 원소). 서버는 소속·중복만 검증(A안)하고
+        순위 자체는 신뢰한다. 저장 후 FINISHED로 전이.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/GameIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameResultRequest"
+      responses:
+        "200":
+          description: 종료 성공 (순위 포함)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameView"
+        "400":
+          description: "ranking에 비소속 참가자 또는 중복 (code: VALIDATION_ERROR)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: "인증 필요 (code: UNAUTHORIZED)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: "소유자 아님 (code: NOT_OWNER)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "해당 이벤트에 그 게임 없음 (code: GAME_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "종료된 게임 (code: GAME_ALREADY_FINISHED) / RUNNING 아님 (code: INVALID_GAME_STATE_TRANSITION)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventCode}/games/{gameId}/participants:
+    post:
+      tags: [game]
+      summary: 게임 참가 / 재참가 (공개)
+      security: []
+      description: >
+        게임이 OPEN일 때만 허용. X-Client-Id로 게스트를 식별한다. 같은 clientId로 다시 참가하면 닉네임만
+        갱신하고 200, 신규면 201.
+      parameters:
+        - $ref: "#/components/parameters/EventCodePath"
+        - $ref: "#/components/parameters/GameIdPath"
+        - name: X-Client-Id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: 익명 브라우저 UUID(FE localStorage). 참가자 식별·재참가 키. 없으면 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantJoinRequest"
+      responses:
+        "201":
+          description: 신규 참가
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantView"
+        "200":
+          description: 재참가 (닉네임 갱신)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantView"
+        "400":
+          description: "닉네임 검증 실패 또는 X-Client-Id 누락 (code: VALIDATION_ERROR)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: "해당 이벤트에 그 게임 없음 (code: GAME_NOT_FOUND)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: "게임이 OPEN 아님 (code: GAME_NOT_OPEN)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   securitySchemes:
     cookieAuth:
@@ -899,6 +1169,13 @@ components:
       schema:
         type: integer
         format: int64
+    GameIdPath:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
 
   schemas:
     Error:
@@ -907,7 +1184,7 @@ components:
       properties:
         code:
           type: string
-          description: 에러 코드 v1(21개).
+          description: 에러 코드 v1(25개).
           enum:
             - VALIDATION_ERROR
             - INVALID_CREDENTIALS
@@ -919,6 +1196,7 @@ components:
             - SESSION_NOT_FOUND
             - FEEDBACK_NOT_FOUND
             - REPORT_NOT_FOUND
+            - GAME_NOT_FOUND
             - EVENT_NOT_LIVE
             - SESSION_CLOSED
             - INVALID_EVENT_STATE_TRANSITION
@@ -927,6 +1205,9 @@ components:
             - SESSION_ALREADY_DELETED
             - EVENT_NOT_ENDED
             - REPORT_ALREADY_EXISTS
+            - GAME_NOT_OPEN
+            - INVALID_GAME_STATE_TRANSITION
+            - GAME_ALREADY_FINISHED
             - RATE_LIMIT_EXCEEDED
             - REPORT_GENERATION_FAILED
             - INTERNAL_ERROR
@@ -1349,3 +1630,105 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/KeywordCount"
+
+    GameStatus:
+      type: string
+      description: 단방향 상태머신. DRAFT→OPEN→RUNNING→FINISHED로 한 단계씩만 전진.
+      enum: [DRAFT, OPEN, RUNNING, FINISHED]
+
+    GameType:
+      type: string
+      enum: [PINBALL]
+
+    ParticipantView:
+      type: object
+      description: 공개 참가자 뷰. 내부 식별자 clientId는 제외.
+      required: [id, nickname, joinedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 12
+        joinedAt:
+          type: string
+          format: date-time
+
+    GameView:
+      type: object
+      description: 게임 공개 뷰(단건·현재·목록 공통). 참가자는 clientId 제외.
+      required: [id, title, gameType, status, participants, ranking, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+          minLength: 1
+          maxLength: 50
+        gameType:
+          $ref: "#/components/schemas/GameType"
+        status:
+          $ref: "#/components/schemas/GameStatus"
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantView"
+        ranking:
+          type: array
+          description: 참가자 PK를 등수 순서로 담은 배열(1등이 첫 원소). 종료 전엔 빈 배열.
+          items:
+            type: integer
+            format: int64
+        createdAt:
+          type: string
+          format: date-time
+
+    GameListResponse:
+      type: object
+      description: 게임 목록 봉투(주최자용, {items} seam).
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GameView"
+
+    GameCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 50
+
+    GameStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/GameStatus"
+
+    GameResultRequest:
+      type: object
+      required: [ranking]
+      properties:
+        ranking:
+          type: array
+          minItems: 1
+          description: 참가자 PK 순위(1등이 첫 원소). 서버는 소속·중복만 검증.
+          items:
+            type: integer
+            format: int64
+
+    ParticipantJoinRequest:
+      type: object
+      required: [nickname]
+      properties:
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 12

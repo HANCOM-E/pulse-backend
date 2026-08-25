@@ -54,7 +54,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/signup",
                                 AuthCookies.REFRESH_TOKEN_PATH,
-                                "/api/v1/events/*/feedbacks"))
+                                "/api/v1/events/*/feedbacks",
+                                "/api/v1/events/*/games/*/participants")) // 게스트 참가는 비인증 공개(보호할 세션 없음)
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
@@ -81,6 +82,10 @@ public class SecurityConfig {
                         .permitAll() // 집계 SSE 공개 스트림
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/*/report")
                         .permitAll() // 리포트 공개 조회(auth 인식: 소유자 전체 / 게스트 공개분)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/games/*")
+                        .permitAll() // 게임 현재/단건 공개 조회(목록 GET .../games는 매칭 안 됨 → 주최자 인증 유지)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/events/*/games/*/participants")
+                        .permitAll() // 게스트 참가/재참가 공개
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.
