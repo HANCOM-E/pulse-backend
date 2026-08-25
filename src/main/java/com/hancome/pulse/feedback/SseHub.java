@@ -65,6 +65,7 @@ public class SseHub {
             emitter.send(SseEmitter.event().name("snapshot").data(initial, MediaType.APPLICATION_JSON));
         } catch (IOException | IllegalStateException e) {
             remove(channel, sub); // 초기 전송 직전 이미 끊김 → 등록 취소
+            completeQuietly(emitter, e); // async 요청 종료 → EntityManager/커넥션 반납
         }
         return emitter;
     }
@@ -95,6 +96,7 @@ public class SseHub {
                     sub.emitter().send(SseEmitter.event().comment("ping"));
                 } catch (IOException | IllegalStateException e) {
                     remove(channel, sub);
+                    completeQuietly(sub.emitter(), e); // async 요청 종료 → EntityManager/커넥션 반납
                 }
             }
         });
@@ -109,6 +111,7 @@ public class SseHub {
         } catch (Exception e) {
             // 끊긴 연결이 대부분이라 debug로만 남긴다. 실패한 구독자는 호출부가 제거한다.
             log.debug("[SSE] dropping subscriber after send failure: {}", e.toString());
+            completeQuietly(sub.emitter(), e); // async 요청 종료 → EntityManager/커넥션 반납
             return false;
         }
     }
@@ -118,6 +121,17 @@ public class SseHub {
         Set<Subscriber> subs = subscribers.get(channel);
         if (subs != null) {
             subs.remove(sub);
+        }
+    }
+
+    // 실패한 에미터를 종료해 async 요청을 끝낸다 — 그래야 컨테이너가 요청 스코프를 정리하고(OSIV였다면 EntityManager를
+    // 닫아) 커넥션이 풀로 반납된다. remove만 하고 이걸 안 하면 async 요청이 타임아웃(30분)까지 살아남아 리소스가 고아가
+    // 된다(pulse-backend#39). 이미 완료·끊긴 에미터엔 completeWithError가 예외를 던지므로 조용히 삼킨다.
+    private void completeQuietly(SseEmitter emitter, Throwable cause) {
+        try {
+            emitter.completeWithError(cause);
+        } catch (Exception ignore) {
+            // 이미 완료됐거나 연결이 끊긴 에미터 — 무시
         }
     }
 }
