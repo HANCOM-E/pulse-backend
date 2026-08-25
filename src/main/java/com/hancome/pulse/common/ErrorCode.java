@@ -15,6 +15,7 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 세션입니다"), // 404
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 소감입니다"), // 404
     REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "리포트가 없거나 비공개입니다"), // 404
+    GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 게임입니다"), // 404
 
     // 409 — 충돌/상태
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입된 이메일입니다"), // 409
@@ -26,6 +27,9 @@ public enum ErrorCode {
     SESSION_CLOSED(HttpStatus.CONFLICT, "세션이 마감되어 소감을 받지 않습니다"), // 409
     EVENT_NOT_ENDED(HttpStatus.CONFLICT, "이벤트가 종료되지 않았습니다"), // 409
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "리포트가 이미 생성 중이거나 완료되었습니다"), // 409
+    GAME_NOT_OPEN(HttpStatus.CONFLICT, "게임이 참가 가능한 상태(OPEN)가 아닙니다"), // 409
+    INVALID_GAME_STATE_TRANSITION(HttpStatus.CONFLICT, "유효하지 않은 게임 상태 전이입니다"), // 409
+    GAME_ALREADY_FINISHED(HttpStatus.CONFLICT, "이미 종료된 게임입니다"), // 409
 
     // 기타
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "제출 빈도를 초과했습니다"), // 429
