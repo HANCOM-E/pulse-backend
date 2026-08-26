@@ -58,8 +58,11 @@ public class SecurityConfig {
                                 "/api/v1/events/*/games/*/participants")) // 게스트 참가는 비인증 공개(보호할 세션 없음)
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
-                        .permitAll()
+                .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(
+                                DispatcherType.ASYNC, DispatcherType.ERROR)
+                        .permitAll() // SSE 정리용 ASYNC 재디스패치는 최초 REQUEST에서 이미 인가됨.
+                        // (SseEmitter는 Callable이 아니라 async 디스패치에 SecurityContext가 복원 안 돼,
+                        //  admin 스트림 종료 시 anyRequest().authenticated()가 오탐 Access Denied를 던졌다.)
                         .requestMatchers("/api/v1/health", "/swagger-ui/**", "/v3/api-docs/**")
                         .permitAll() // 헬스체크·Swagger 문서 공개
                         .requestMatchers(
