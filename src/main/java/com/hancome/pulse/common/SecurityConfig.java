@@ -55,11 +55,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup",
                                 AuthCookies.REFRESH_TOKEN_PATH,
                                 "/api/v1/events/*/feedbacks",
-                                "/api/v1/events/*/games/*/participants")) // 게스트 참가는 비인증 공개(보호할 세션 없음)
+                                "/api/v1/events/*/games/*/participants", // 게스트 참가는 비인증 공개(보호할 세션 없음)
+                                "/api/v1/events/*/sessions/*/report/generate")) // 강연자 세션 리포트 생성은 비인증(토큰 아닌 링크)
                 .cors(Customizer.withDefaults()) // 아래 corsConfigurationSource 빈을 적용
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(
-                                DispatcherType.ASYNC, DispatcherType.ERROR)
+                .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR)
                         .permitAll() // SSE 정리용 ASYNC 재디스패치는 최초 REQUEST에서 이미 인가됨.
                         // (SseEmitter는 Callable이 아니라 async 디스패치에 SecurityContext가 복원 안 돼,
                         //  admin 스트림 종료 시 anyRequest().authenticated()가 오탐 Access Denied를 던졌다.)
@@ -89,6 +89,10 @@ public class SecurityConfig {
                         .permitAll() // 게임 현재/단건 공개 조회(목록 GET .../games는 매칭 안 됨 → 주최자 인증 유지)
                         .requestMatchers(HttpMethod.POST, "/api/v1/events/*/games/*/participants")
                         .permitAll() // 게스트 참가/재참가 공개
+                        .requestMatchers(HttpMethod.POST, "/api/v1/events/*/sessions/*/report/generate")
+                        .permitAll() // 강연자 세션 리포트 생성(비인증, CLOSED+멱등으로 방어). 리셋은 주최자 인증 유지
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/*/sessions/*/report")
+                        .permitAll() // 세션 리포트 공개 조회(세션 피드백 집계가 공개라 그 요약도 공개)
                         .anyRequest()
                         .authenticated())
                 // 필터 단에서 나는 인증/인가 실패는 @RestControllerAdvice에 안 잡히므로 여기서 같은 봉투로 응답.

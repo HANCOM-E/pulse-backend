@@ -49,6 +49,7 @@ class ReportServiceTest {
     private final SessionRepository sessionRepository;
     private final FeedbackRepository feedbackRepository;
     private final ReportRepository reportRepository;
+    private final SessionReportRepository sessionReportRepository;
     private final TestEntityManager em;
 
     @Autowired
@@ -63,12 +64,14 @@ class ReportServiceTest {
             SessionRepository sessionRepository,
             FeedbackRepository feedbackRepository,
             ReportRepository reportRepository,
+            SessionReportRepository sessionReportRepository,
             TestEntityManager em) {
         this.userRepository = userRepository;
         this.eventRepository = eventRepository;
         this.sessionRepository = sessionRepository;
         this.feedbackRepository = feedbackRepository;
         this.reportRepository = reportRepository;
+        this.sessionReportRepository = sessionReportRepository;
         this.em = em;
     }
 
@@ -84,7 +87,7 @@ class ReportServiceTest {
                 .andRespond(
                         withSuccess("{\"choices\":[{\"message\":{\"content\":\"요약\"}}]}", MediaType.APPLICATION_JSON));
         ReportSummaryGenerator summaryGenerator = new ReportSummaryGenerator(builder.build(), "test-model");
-        filler = new ReportFiller(reportRepository, feedbackService, summaryGenerator);
+        filler = new ReportFiller(reportRepository, sessionReportRepository, feedbackService, summaryGenerator);
     }
 
     private User persistOwner(String email) {
