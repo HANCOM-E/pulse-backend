@@ -25,6 +25,7 @@ public enum ErrorCode {
     FEEDBACK_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 소감입니다"), // 409
     SESSION_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 세션입니다"), // 409
     SESSION_CLOSED(HttpStatus.CONFLICT, "세션이 마감되어 소감을 받지 않습니다"), // 409
+    SESSION_NOT_CLOSED(HttpStatus.CONFLICT, "세션이 마감(CLOSED)되지 않아 리포트를 생성할 수 없습니다"), // 409
     EVENT_NOT_ENDED(HttpStatus.CONFLICT, "이벤트가 종료되지 않았습니다"), // 409
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "리포트가 이미 생성 중이거나 완료되었습니다"), // 409
     GAME_NOT_OPEN(HttpStatus.CONFLICT, "게임이 참가 가능한 상태(OPEN)가 아닙니다"), // 409

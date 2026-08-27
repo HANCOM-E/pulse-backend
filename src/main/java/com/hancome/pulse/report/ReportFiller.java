@@ -3,9 +3,11 @@ package com.hancome.pulse.report;
 import com.hancome.pulse.feedback.FeedbackService;
 import com.hancome.pulse.feedback.dto.FeedbackSnapshot;
 import java.time.Instant;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 /**
  * 리포트를 실제로 채우는 트랜잭션 경계. {@link ReportGenerationWorker}와 분리한 이유는 (1) 성공/실패를 각각 독립 트랜잭션으로 다루기
@@ -18,14 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class ReportFiller {
     private final ReportRepository reportRepository;
+    private final SessionReportRepository sessionReportRepository;
     private final FeedbackService feedbackService;
     private final ReportSummaryGenerator summaryGenerator;
 
     public ReportFiller(
             ReportRepository reportRepository,
+            SessionReportRepository sessionReportRepository,
             FeedbackService feedbackService,
             ReportSummaryGenerator summaryGenerator) {
         this.reportRepository = reportRepository;
+        this.sessionReportRepository = sessionReportRepository;
         this.feedbackService = feedbackService;
         this.summaryGenerator = summaryGenerator;
     }
@@ -50,9 +55,28 @@ public class ReportFiller {
         report.setSentimentBreakdown(snapshot.sentimentBreakdown());
         report.setUnclassifiedCount(snapshot.unclassifiedCount());
         report.setTopKeywords(snapshot.topKeywords());
-        report.setSummaryText(summaryGenerator.summarize(snapshot));
+        // 이벤트 요약엔 전 세션 강연자 자료요약도 근거로 얹는다. 없으면 빈 문자열 → summarize가 소감-only 경로로 처리.
+        report.setSummaryText(summaryGenerator.summarize(snapshot, gatherSessionMaterials(eventCode)));
         report.setStatus(ReportStatus.GENERATED);
         report.setGeneratedAt(Instant.now());
+    }
+
+    /**
+     * 이벤트에 속한 완료된 세션 리포트들의 자료요약을 모아 불릿 문자열로 합친다(이벤트 요약 융합용). 자료가 하나도 없으면 빈 문자열.
+     *
+     * <p>ponytail: 세션 수 × 자료요약 길이만큼 프롬프트가 커진다. 자료요약은 생성 시 @Size(2000)로 캡되고 세션 수도 소규모라 무해 —
+     * 세션이 수십 개로 커지면 이 문자열을 한 번 더 압축(요약의 요약)해서 넘긴다.
+     *
+     * @param eventCode 이벤트 공개 코드
+     * @return "- 요약\n- 요약" 형태(없으면 빈 문자열)
+     */
+    private String gatherSessionMaterials(String eventCode) {
+        return sessionReportRepository.findBySession_Event_Code(eventCode).stream()
+                .filter(r -> r.getStatus() == ReportStatus.GENERATED)
+                .map(SessionReport::getMaterialSummary)
+                .filter(StringUtils::hasText)
+                .map(m -> "- " + m.strip())
+                .collect(Collectors.joining("\n"));
     }
 
     /**
