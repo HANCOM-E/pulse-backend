@@ -32,7 +32,7 @@ public record GameView(
                 g.getGameType(),
                 g.getStatus(),
                 g.getParticipants().stream().map(ParticipantView::from).toList(),
-                g.getRanking(),
+                List.copyOf(g.getRanking()), // lazy 컬렉션을 트랜잭션 안에서 실체화(직렬화 시점 no-session 방지)
                 g.getCreatedAt());
     }
 }
