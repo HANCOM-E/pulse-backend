@@ -46,7 +46,7 @@ public interface FeedbackRepository extends JpaRepository<Feedback, Long> {
             and (:sessionId is null or f.session.id = :sessionId)
             and f.status = :status
             and f.session.status <> com.hancome.pulse.event.SessionStatus.DELETED
-        order by f.createdAt desc
+        order by f.createdAt desc, f.id desc
 """)
     List<Feedback> recentFeedbacks(
             @Param("eventCode") String eventCode,
