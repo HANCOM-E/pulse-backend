@@ -16,7 +16,6 @@ import com.hancome.pulse.event.SessionStatus;
 import com.hancome.pulse.feedback.dto.FeedbackSnapshot;
 import com.hancome.pulse.feedback.dto.FeedbackSubmitRequest;
 import com.hancome.pulse.feedback.dto.FeedbackView;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -147,12 +146,9 @@ class FeedbackServiceTest {
         // given
         Event event = persistEvent("EVT-A", EventStatus.LIVE);
         Session session = persistSession(event, SessionStatus.ACTIVE);
-        Feedback older = new Feedback(session, "먼저", Sentiment.POS, false, "kobert-v1", List.of("a"));
-        older.setCreatedAt(Instant.parse("2026-08-15T10:00:00Z"));
-        feedbackRepository.save(older);
-        Feedback newer = new Feedback(session, "나중", Sentiment.NEG, false, "kobert-v1", List.of("b"));
-        newer.setCreatedAt(Instant.parse("2026-08-15T11:00:00Z"));
-        feedbackRepository.save(newer);
+        // createdAt은 @CreationTimestamp라 명시 설정이 INSERT 시점에 덮어써짐 → 삽입 순서(=id desc)로 최신순이 결정된다.
+        feedbackRepository.save(new Feedback(session, "먼저", Sentiment.POS, false, "kobert-v1", List.of("a")));
+        feedbackRepository.save(new Feedback(session, "나중", Sentiment.NEG, false, "kobert-v1", List.of("b")));
         saveFeedback(session, Sentiment.NEU, List.of("c"), FeedbackStatus.DELETED); // 제외
         em.flush();
         em.clear();
